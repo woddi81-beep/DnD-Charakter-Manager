@@ -1,0 +1,25 @@
+{
+  "race": "gnom",
+  "class": "schurke",
+  "background": "obdachloser",
+  "abilities": {
+    "STR": 10,
+    "DEX": 10,
+    "CON": 10,
+    "INT": 10,
+    "WIS": 10,
+    "CHA": 10
+  },
+  "skills": [
+    "Geschichte",
+    "Täuschung",
+    "Überleben",
+    "Heimlichkeit"
+  ],
+  "backstory": "Obdachloser — Du flohst wegen Krieg oder Verfolgung. Du bist vor einem mächtigen Gläubiger geflohen.",
+  "name": "Test testeeli",
+  "playerName": "",
+  "alignment": "LE",
+  "gender": "Weiblich",
+  "xp": 0
+}

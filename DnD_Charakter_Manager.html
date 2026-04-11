@@ -1353,7 +1353,7 @@
                 <button class="btn btn-primary" onclick="sendToErwin()" style="font-size:1.1em; padding:18px 35px; background: linear-gradient(135deg, #9b59b6, #8e44ad);">
                     ✨ Erwin: Charakter perfekt machen!
                 </button>
-                <button class="btn btn-primary" onclick="if(!window.jspdf){alert('PDF wird geladen...');return false;} generatePDF();" style="font-size:1.1em; padding:18px 35px;">
+                <button class="btn btn-primary"  onclick="console.log('jspdf:', typeof window.jspdf, window.jspdf); if(!window.jspdf){alert('PDF wird geladen...');return false;} generatePDF();" style="font-size:1.1em; padding:18px 35px;">
                     📄 PDF Eigen
                 </button>
             </div>
@@ -1813,7 +1813,7 @@ function renderSummary() {
 
 // ==================== PDF ====================
 function generatePDF() {
-    console.log('generatePDF called');
+    console.log('jspdf type:', typeof window.jspdf); console.log('generatePDF called');
     if (!window.jspdf) {
         console.error('jsPDF not loaded');
         alert('PDF-Bibliothek noch nicht geladen, bitte warten');

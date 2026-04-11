@@ -1,0 +1,2529 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D&D 5e Charakter Manager</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Philosopher:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        :root {
+            --gold: #ffd700;
+            --gold-dark: #b8860b;
+            --purple: #9b59b6;
+            --blue: #3498db;
+            --red: #e74c3c;
+            --green: #2ecc71;
+            --dark: #0a0a1a;
+            --glass: rgba(255,255,255,0.05);
+            --glass-border: rgba(255,255,255,0.1);
+        }
+        
+        body {
+            font-family: 'Philosopher', serif;
+            background: var(--dark);
+            min-height: 100vh;
+            color: #fff;
+            overflow-x: hidden;
+        }
+        
+        /* Animated Background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            overflow: hidden;
+        }
+        
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(255,215,0,0.3), rgba(155,89,182,0.2));
+            border: 1px solid rgba(255,255,255,0.1);
+            animation: float linear infinite;
+            backdrop-filter: blur(1px);
+        }
+        
+        .bubble::before {
+            content: '';
+            position: absolute;
+            top: 10%;
+            left: 20%;
+            width: 30%;
+            height: 30%;
+            background: rgba(255,255,255,0.4);
+            border-radius: 50%;
+            filter: blur(3px);
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; }
+        }
+        
+        /* Particle Trail */
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--gold);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: sparkle 1s ease-out forwards;
+        }
+        
+        @keyframes sparkle {
+            0% { transform: scale(1) translateY(0); opacity: 1; }
+            100% { transform: scale(0) translateY(-50px); opacity: 0; }
+        }
+        
+        /* Container */
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 80px 30px 30px;
+        }
+        
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            font-family: 'Cinzel', serif;
+            font-size: 3.5em;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--gold), #fff, var(--gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 60px rgba(255,215,0,0.5);
+            margin-bottom: 10px;
+            letter-spacing: 4px;
+        }
+        
+        .subtitle {
+            font-size: 1.2em;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 3px;
+        }
+        
+        /* Progress Bar */
+        .progress-container {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10,10,26,0.9);
+            backdrop-filter: blur(20px);
+            padding: 20px 0;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        
+        .progress-track {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+        
+        .progress-track::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-50%);
+            z-index: 0;
+        }
+        
+        .progress-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--gold), var(--purple));
+            transform: translateY(-50%);
+            transition: width 0.5s ease;
+            z-index: 1;
+        }
+        
+        .step-indicator {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--glass);
+            border: 2px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Cinzel', serif;
+            font-weight: 700;
+            font-size: 1.2em;
+            transition: all 0.4s ease;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .step-indicator.active {
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            border-color: var(--gold);
+            color: var(--dark);
+            box-shadow: 0 0 30px rgba(255,215,0,0.5);
+            transform: scale(1.2);
+        }
+        
+        .step-indicator.completed {
+            background: linear-gradient(135deg, var(--green), #27ae60);
+            border-color: var(--green);
+        }
+        
+        /* Cards */
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 30px;
+            margin-bottom: 30px;
+            transition: all 0.4s ease;
+        }
+        
+        .card:hover {
+            border-color: rgba(255,215,0,0.3);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .card-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.8em;
+            color: var(--gold);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .card-title .icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--gold), var(--purple));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+        }
+        
+        /* Grid */
+        .grid {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+        .grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+        
+        @media (max-width: 900px) {
+            .grid-3, .grid-4 { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+        }
+        
+        /* Selection Cards */
+        .selection-card {
+            background: rgba(255,255,255,0.03);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 25px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .selection-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.5s;
+        }
+        
+        .selection-card:hover::before {
+            left: 100%;
+        }
+        
+        .selection-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255,215,0,0.5);
+            box-shadow: 0 15px 40px rgba(255,215,0,0.2);
+        }
+        
+        .selection-card.selected {
+            background: linear-gradient(135deg, rgba(255,215,0,0.1), rgba(155,89,182,0.1));
+            border-color: var(--gold);
+            box-shadow: 0 0 40px rgba(255,215,0,0.3);
+        }
+        
+        .selection-card h3 {
+            font-family: 'Cinzel', serif;
+            font-size: 1.4em;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        
+        .selection-card p {
+            color: rgba(255,255,255,0.6);
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+        
+        .selection-card .badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: var(--gold);
+            color: var(--dark);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 700;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.3s;
+        }
+        
+        .selection-card.selected .badge {
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        /* Abilities */
+        .ability-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+        
+        @media (max-width: 800px) {
+            .ability-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 500px) {
+            .ability-grid { grid-template-columns: 1fr; }
+        }
+        
+        .ability-box {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .ability-box:hover {
+            border-color: rgba(255,215,0,0.5);
+        }
+        
+        .ability-name {
+            font-family: 'Cinzel', serif;
+            font-size: 0.9em;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+        
+        .ability-score {
+            font-family: 'Cinzel', serif;
+            font-size: 3em;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--gold), #fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .ability-modifier {
+            font-size: 1.5em;
+            color: var(--gold);
+            margin: 5px 0;
+        }
+        
+        .ability-modifier.negative { color: var(--red); }
+        
+        .ability-input {
+            width: 60px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            padding: 8px;
+            color: #fff;
+            text-align: center;
+            font-size: 1em;
+        }
+        
+        /* Skills */
+        .skill-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        @media (max-width: 600px) {
+            .skill-list { grid-template-columns: 1fr; }
+        }
+        
+        .skill-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255,255,255,0.03);
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .skill-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .skill-item.from-class {
+            border-color: rgba(155,89,182,0.3);
+        }
+        
+        .skill-item input[type="checkbox"] {
+            width: 22px;
+            height: 22px;
+            accent-color: var(--gold);
+            cursor: pointer;
+        }
+        
+        .skill-item label {
+            flex: 1;
+            cursor: pointer;
+        }
+        
+        .skill-item.from-class label {
+            color: rgba(255,255,255,0.9);
+        }
+        
+        .skill-item .ability-tag {
+            font-size: 0.8em;
+            color: rgba(255,255,255,0.4);
+            background: rgba(255,255,255,0.1);
+            padding: 3px 8px;
+            border-radius: 10px;
+        }
+        
+        .skill-item .bonus {
+            color: var(--gold);
+            font-weight: 700;
+            min-width: 30px;
+            text-align: right;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 15px 35px;
+            border: none;
+            border-radius: 50px;
+            font-family: 'Cinzel', serif;
+            font-size: 1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: var(--dark);
+            box-shadow: 0 10px 30px rgba(255,215,0,0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(255,215,0,0.5);
+        }
+        
+        .btn-primary:disabled {
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.3);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--gold);
+            color: var(--gold);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255,215,0,0.1);
+        }
+        
+        .btn-dice {
+            background: linear-gradient(135deg, var(--purple), #8e44ad);
+            color: #fff;
+            font-size: 1.1em;
+            padding: 18px 40px;
+        }
+        
+        .btn-dice:hover {
+            box-shadow: 0 10px 30px rgba(155,89,182,0.5);
+        }
+        
+        /* Navigation */
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+        }
+        
+        /* Personality */
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9em;
+        }
+        
+        .input-group input,
+        .input-group select,
+        .input-group textarea {
+            width: 100%;
+            padding: 15px 20px;
+            background: rgba(0,0,0,0.3);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            color: #fff;
+            font-size: 1em;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+        
+        .input-group input:focus,
+        .input-group select:focus,
+        .input-group textarea:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 20px rgba(255,215,0,0.2);
+        }
+        
+        /* Backstory Keywords */
+        .keyword-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        @media (max-width: 600px) {
+            .keyword-grid { grid-template-columns: 1fr; }
+        }
+        
+        .keyword-card {
+            background: rgba(155,89,182,0.1);
+            border: 2px solid rgba(155,89,182,0.3);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .keyword-card:hover {
+            background: rgba(155,89,182,0.2);
+            border-color: var(--purple);
+        }
+        
+        .keyword-card.selected {
+            background: linear-gradient(135deg, rgba(155,89,182,0.3), rgba(255,215,0,0.2));
+            border-color: var(--gold);
+        }
+        
+        .keyword-card h4 {
+            color: var(--gold);
+            font-family: 'Cinzel', serif;
+            margin-bottom: 8px;
+        }
+        
+        .keyword-card p {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9em;
+        }
+        
+        /* Story Preview */
+        .story-preview {
+            background: linear-gradient(135deg, rgba(255,215,0,0.05), rgba(155,89,182,0.05));
+            border: 1px solid rgba(255,215,0,0.2);
+            border-radius: 20px;
+            padding: 25px;
+            margin-top: 20px;
+            font-style: italic;
+            line-height: 1.9;
+            color: rgba(255,255,255,0.9);
+        }
+        
+        /* Summary */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+        
+        @media (max-width: 900px) {
+            .summary-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 500px) {
+            .summary-grid { grid-template-columns: 1fr; }
+        }
+        
+        .summary-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .summary-card .label {
+            font-size: 0.8em;
+            color: rgba(255,255,255,0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+        
+        .summary-card .value {
+            font-family: 'Cinzel', serif;
+            font-size: 1.4em;
+            color: var(--gold);
+        }
+        
+        /* PDF Preview */
+        .pdf-preview {
+            background: #fff;
+            color: #1a1a2e;
+            border-radius: 20px;
+            padding: 40px;
+            margin-top: 30px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .pdf-preview h1 {
+            background: linear-gradient(135deg, #1a1a2e, #333);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+        
+        /* Hidden */
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Glow Effect */
+        .glow {
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 20px rgba(255,215,0,0.5); }
+            to { text-shadow: 0 0 40px rgba(255,215,0,0.8), 0 0 60px rgba(255,215,0,0.4); }
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.3);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--gold);
+            border-radius: 4px;
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+        }
+        
+        .tooltip::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.9);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.8em;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        
+        .tooltip:hover::after {
+            opacity: 1;
+        }
+        
+        /* Magic Circle */
+        .magic-circle {
+            width: 150px;
+            height: 150px;
+            border: 3px solid var(--gold);
+            border-radius: 50%;
+            position: relative;
+            margin: 20px auto;
+            animation: rotate 20s linear infinite;
+        }
+        
+        .magic-circle::before,
+        .magic-circle::after {
+            content: '';
+            position: absolute;
+            border: 2px solid var(--gold);
+            border-radius: 50%;
+        }
+        
+        .magic-circle::before {
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+        }
+        
+        .magic-circle::after {
+            top: 30px;
+            left: 30px;
+            right: 30px;
+            bottom: 30px;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Dice Animation */
+        @keyframes roll {
+            0% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(90deg) scale(1.2); }
+            50% { transform: rotate(180deg) scale(1); }
+            75% { transform: rotate(270deg) scale(1.2); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        
+        .rolling {
+            animation: roll 0.5s ease-out;
+        }
+        
+        /* Scroll to top */
+        .scroll-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 100;
+        }
+        
+        .scroll-top.visible {
+            opacity: 1;
+        }
+        
+        .scroll-top:hover {
+            transform: scale(1.1);
+        }
+        
+        /* Character Bar */
+        .char-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, rgba(10,10,26,0.98), rgba(20,20,50,0.98));
+            backdrop-filter: blur(20px);
+            border-bottom: 2px solid var(--gold);
+            padding: 10px 20px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 5px 30px rgba(0,0,0,0.5);
+        }
+        
+        .char-bar-title {
+            font-family: 'Cinzel', serif;
+            color: var(--gold);
+            font-size: 1em;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        
+        .char-bar-select {
+            flex: 1;
+            max-width: 300px;
+            padding: 8px 15px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,215,0,0.3);
+            border-radius: 25px;
+            color: #fff;
+            font-size: 0.9em;
+            cursor: pointer;
+        }
+        
+        .char-bar-select:focus {
+            outline: none;
+            border-color: var(--gold);
+        }
+        
+        .char-bar-btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 20px;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+        
+        .char-bar-btn.new {
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: var(--dark);
+            font-weight: 700;
+        }
+        
+        .char-bar-btn.new:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255,215,0,0.4);
+        }
+        
+        .char-bar-btn.edit {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .char-bar-btn.edit:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .char-bar-btn.clone {
+            background: rgba(155,89,182,0.3);
+            color: #fff;
+            border: 1px solid var(--purple);
+        }
+        
+        .char-bar-btn.clone:hover {
+            background: rgba(155,89,182,0.5);
+        }
+        
+        .char-bar-btn.delete {
+            background: rgba(231,76,60,0.3);
+            color: #fff;
+            border: 1px solid var(--red);
+        }
+        
+        .char-bar-btn.delete:hover {
+            background: rgba(231,76,60,0.5);
+        }
+        
+        .char-bar-btn.save {
+            background: linear-gradient(135deg, var(--green), #27ae60);
+            color: #fff;
+            font-weight: 700;
+        }
+        
+        .char-bar-btn.save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(46,204,113,0.4);
+        }
+        
+        .char-bar-spacer {
+            flex: 1;
+        }
+        
+        .char-bar-player {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .char-bar-player input {
+            padding: 8px 15px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,215,0,0.3);
+            border-radius: 20px;
+            color: #fff;
+            font-size: 0.9em;
+            width: 150px;
+        }
+        
+        .char-bar-player input::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+        
+        .char-count {
+            color: rgba(255,255,255,0.6);
+            font-size: 0.85em;
+            white-space: nowrap;
+        }
+        
+        /* ==================== MOBILE ==================== */
+        @media (max-width: 900px) {
+            /* Character Bar Mobile */
+            .char-bar {
+                flex-wrap: wrap;
+                padding: 8px 10px;
+                gap: 8px;
+            }
+            
+            .char-bar-title {
+                font-size: 0.85em;
+                width: 100%;
+                text-align: center;
+                padding-bottom: 5px;
+                border-bottom: 1px solid rgba(255,215,0,0.2);
+            }
+            
+            .char-bar-select {
+                flex: 1;
+                min-width: 150px;
+                max-width: none;
+            }
+            
+            .char-bar-buttons {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5px;
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .char-bar-btn {
+                padding: 6px 10px;
+                font-size: 0.75em;
+            }
+            
+            .char-bar-spacer {
+                display: none;
+            }
+            
+            .char-bar-player {
+                width: 100%;
+                justify-content: center;
+                margin-top: 5px;
+                padding-top: 5px;
+                border-top: 1px solid rgba(255,215,0,0.2);
+            }
+            
+            .char-bar-player input {
+                width: 120px;
+                font-size: 0.8em;
+                padding: 6px 10px;
+            }
+            
+            .char-count {
+                font-size: 0.75em;
+            }
+            
+            /* Container Mobile */
+            .container {
+                padding: 120px 15px 30px;
+            }
+            
+            /* Header Mobile */
+            header {
+                margin-bottom: 20px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+            }
+            
+            .subtitle {
+                font-size: 0.9em;
+            }
+            
+            /* Progress Mobile */
+            .progress-container {
+                margin-bottom: 20px;
+            }
+            
+            .progress-track {
+                height: 30px;
+            }
+            
+            .step-indicator {
+                width: 28px;
+                height: 28px;
+                font-size: 0.75em;
+            }
+            
+            /* Grid Mobile */
+            .grid {
+                grid-template-columns: 1fr !important;
+                gap: 10px;
+            }
+            
+            .grid-2, .grid-3 {
+                grid-template-columns: 1fr;
+            }
+            
+            /* Card Mobile */
+            .card {
+                padding: 20px 15px;
+            }
+            
+            .card-title {
+                font-size: 1.3em;
+            }
+            
+            /* Race/Class/Background Cards */
+            .race-card, .class-card, .bg-card {
+                padding: 15px;
+            }
+            
+            .race-card .emoji, .class-card .emoji, .bg-card .emoji {
+                font-size: 2em;
+            }
+            
+            .race-card h3, .class-card h3, .bg-card h3 {
+                font-size: 1em;
+            }
+            
+            .race-card p, .class-card p, .bg-card p {
+                font-size: 0.85em;
+            }
+            
+            /* Ability Rollers */
+            .ability-roller {
+                padding: 15px;
+            }
+            
+            .ability-roller h3 {
+                font-size: 1em;
+            }
+            
+            /* Skill Grid */
+            .skill-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            /* Input Mobile */
+            .input-group input,
+            .input-group select,
+            .input-group textarea {
+                font-size: 16px; /* Prevent zoom on iOS */
+                padding: 12px;
+            }
+            
+            /* Buttons Mobile */
+            .btn {
+                padding: 12px 20px;
+                font-size: 0.9em;
+            }
+            
+            /* Nav Buttons Mobile */
+            .nav-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .nav-buttons .btn {
+                width: 100%;
+            }
+            
+            /* PDF Preview Mobile */
+            .pdf-preview {
+                padding: 15px;
+                font-size: 0.9em;
+            }
+            
+            /* Scroll Top Mobile */
+            .scroll-top {
+                width: 45px;
+                height: 45px;
+                bottom: 20px;
+                right: 20px;
+            }
+            
+            /* Summary Cards Mobile */
+            .summary-card {
+                padding: 10px;
+            }
+            
+            .summary-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        @media (max-width: 500px) {
+            .container {
+                padding: 140px 10px 20px;
+            }
+            
+            h1 {
+                font-size: 1.3em;
+            }
+            
+            .card {
+                padding: 15px 10px;
+                border-radius: 15px;
+            }
+            
+            .char-bar-btn {
+                padding: 5px 8px;
+                font-size: 0.7em;
+            }
+            
+            .char-bar-select {
+                font-size: 0.8em;
+                padding: 6px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Character Bar -->
+    <div class="char-bar">
+        <span class="char-bar-title">⚔️ Helden</span>
+        <select class="char-bar-select" id="charSelect" onchange="loadCharacter()">
+            <option value="">— Charakter wählen —</option>
+        </select>
+        <div class="char-bar-buttons">
+            <button class="char-bar-btn new" onclick="newCharacter();">✨ Neu</button>
+            <button class="char-bar-btn edit" id="btnEdit" onclick="editCharacter()" disabled>✏️</button>
+            <button class="char-bar-btn clone" id="btnClone" onclick="cloneCharacter()" disabled>📋</button>
+            <button class="char-bar-btn delete" id="btnDelete" onclick="deleteCharacter()" disabled>🗑️</button>
+            <button class="char-bar-btn save" id="btnSave" onclick="saveCurrentCharacter();" disabled>💾</button>
+        </div>
+        <div class="char-bar-player">
+            <span style="color:rgba(255,255,255,0.6);font-size:0.85em;">Spieler:</span>
+            <input type="text" id="playerFilter" placeholder="Spielername" onchange="filterByPlayer()">
+        </div>
+        <span class="char-count" id="charCount">0 Helden</span>
+    </div>
+    
+    <!-- Animated Background -->
+    <div class="bg-animation" id="bgAnimation"></div>
+    
+    <div class="container">
+        <header>
+            <h1 class="glow">⚔️ D&D Charakter Manager ⚔️</h1>
+            <p class="subtitle">Dein Abenteuer beginnt hier</p>
+        </header>
+        
+        <!-- Progress -->
+        <div class="progress-container">
+            <div class="progress-track">
+                <div class="progress-line" id="progressLine" style="width: 0%"></div>
+                <div class="step-indicator active" data-step="1">1</div>
+                <div class="step-indicator" data-step="2">2</div>
+                <div class="step-indicator" data-step="3">3</div>
+                <div class="step-indicator" data-step="4">4</div>
+                <div class="step-indicator" data-step="5">5</div>
+                <div class="step-indicator" data-step="6">6</div>
+                <div class="step-indicator" data-step="7">7</div>
+            </div>
+        </div>
+        
+        <!-- Step 1: Race -->
+        <div class="card" id="step1">
+            <div class="card-title">
+                <div class="icon">🧬</div>
+                Wähle dein Volk
+            </div>
+            <p style="color:rgba(255,255,255,0.6); margin-bottom:25px;">
+                Dein Volk bestimmt deine Grundfähigkeiten, deine Herkunft und dein Aussehen.
+            </p>
+            <div class="grid grid-3" id="raceGrid"></div>
+            <div class="nav-buttons">
+                <div></div>
+                <button class="btn btn-primary" id="btn1" onclick="nextStep(1)" disabled>Weiter →</button>
+            </div>
+        </div>
+        
+        <!-- Step 2: Class -->
+        <div class="card hidden" id="step2">
+            <div class="card-title">
+                <div class="icon">⚔️</div>
+                Wähle deine Klasse
+            </div>
+            <p style="color:rgba(255,255,255,0.6); margin-bottom:25px;">
+                Deine Klasse definiert deinen Kampfstil, deine Magie und deine Fertigkeiten.
+            </p>
+            <div class="grid grid-3" id="classGrid"></div>
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="prevStep(2)">← Zurück</button>
+                <button class="btn btn-primary" id="btn2" onclick="nextStep(2)" disabled>Weiter →</button>
+            </div>
+        </div>
+        
+        <!-- Step 3: Background -->
+        <div class="card hidden" id="step3">
+            <div class="card-title">
+                <div class="icon">📜</div>
+                Wähle deinen Hintergrund
+            </div>
+            <p style="color:rgba(255,255,255,0.6); margin-bottom:25px;">
+                Dein Hintergrund erzählt die Geschichte wer du warst, bevor du ein Abenteurer wurdest.
+            </p>
+            <div class="grid grid-3" id="backgroundGrid"></div>
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="prevStep(3)">← Zurück</button>
+                <button class="btn btn-primary" id="btn3" onclick="nextStep(3)" disabled>Weiter →</button>
+            </div>
+        </div>
+        
+        <!-- Step 4: Abilities -->
+        <div class="card hidden" id="step4">
+            <div class="card-title">
+                <div class="icon">🎲</div>
+                Werte & Fertigkeiten
+            </div>
+            
+            <div style="display:flex; gap:15px; flex-wrap:wrap; margin-bottom:30px;">
+                <button class="btn btn-dice" onclick="rollAbilities()">
+                    🎲 Werte würfeln (4d6)
+                </button>
+                <button class="btn btn-secondary" onclick="usePointBuy()">
+                    ⚡ Punktkauf
+                </button>
+            </div>
+            
+            <div class="ability-grid" id="abilityGrid"></div>
+            
+            <h3 style="color:var(--gold); margin:30px 0 15px; font-family:'Cinzel',serif;">
+                Fertigkeiten
+            </h3>
+            <p style="color:rgba(255,255,255,0.5); margin-bottom:15px;">
+                Wähle <span id="skillCount">2</span> Fertigkeiten aus
+            </p>
+            <div class="skill-list" id="skillList"></div>
+            
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="prevStep(4)">← Zurück</button>
+                <button class="btn btn-primary" id="btn4" onclick="nextStep(4)" disabled>Weiter →</button>
+            </div>
+        </div>
+        
+        <!-- Step 5: Equipment -->
+        <div class="card hidden" id="step5">
+            <div class="card-title">
+                <div class="icon">🎒</div>
+                Ausrüstung
+            </div>
+            <div id="equipmentDisplay"></div>
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="prevStep(5)">← Zurück</button>
+                <button class="btn btn-primary" onclick="nextStep(5)">Weiter →</button>
+            </div>
+        </div>
+        
+        <!-- Step 6: Personality -->
+        <div class="card hidden" id="step6">
+            <div class="card-title">
+                <div class="icon">✨</div>
+                Persönlichkeit & Geschichte
+            </div>
+            
+            <div class="grid grid-2">
+                <div class="input-group">
+                    <label>Charaktername *</label>
+                    <input type="text" id="charName" placeholder="z.B. Thoradin Eisenhelm" required>
+                </div>
+                <div class="input-group">
+                    <label>Spielername</label>
+                    <input type="text" id="playerName" placeholder="Dein Name">
+                </div>
+            </div>
+            
+            <div class="grid grid-3" style="margin-top:20px;">
+                <div class="input-group">
+                    <label>Weltanschauung</label>
+                    <select id="alignment">
+                        <option value="">Bitte wählen...</option>
+                        <option value="LG">Rechtschaffen Gut</option>
+                        <option value="NG">Neutral Gut</option>
+                        <option value="CG">Chaotisch Gut</option>
+                        <option value="LN">Rechtschaffen Neutral</option>
+                        <option value="TN">Wahrhaft Neutral</option>
+                        <option value="CN">Chaotisch Neutral</option>
+                        <option value="LE">Rechtschaffen Böse</option>
+                        <option value="NE">Neutral Böse</option>
+                        <option value="CE">Chaotisch Böse</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Geschlecht</label>
+                    <select id="gender">
+                        <option value="">Bitte wählen...</option>
+                        <option value="Männlich">Männlich</option>
+                        <option value="Weiblich">Weiblich</option>
+                        <option value="Divers">Divers</option>
+                        <option value="Geheim">Geheim</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Erfahrungspunkte</label>
+                    <input type="number" id="xp" value="0" min="0">
+                </div>
+            </div>
+            
+            <h3 style="color:var(--gold); margin:30px 0 15px; font-family:'Cinzel',serif;">
+                Deine Geschichte
+            </h3>
+            <p style="color:rgba(255,255,255,0.5); margin-bottom:15px;">
+                Wähle Schlüsselwörter die deine Vergangenheit beschreiben:
+            </p>
+            <div class="keyword-grid" id="keywordGrid"></div>
+            
+            <div class="story-preview" id="storyPreview">
+                Deine Geschichte erscheint hier, wenn du Schlüsselwörter auswählst...
+            </div>
+            
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="prevStep(6)">← Zurück</button>
+                <button class="btn btn-primary" id="btn6" onclick="nextStep(6)" disabled>Weiter →</button>
+            </div>
+        </div>
+        
+        <!-- Step 7: Summary -->
+        <div class="card hidden" id="step7">
+            <div class="card-title">
+                <div class="icon">📋</div>
+                Zusammenfassung
+            </div>
+            
+            <div class="summary-grid" id="summaryGrid"></div>
+            
+            <div class="magic-circle"></div>
+            
+            <h3 style="color:var(--gold); margin:30px 0 15px; font-family:'Cinzel',serif;">
+                Charakterbogen Vorschau
+            </h3>
+            <div class="pdf-preview" id="pdfPreview"></div>
+            
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="prevStep(7)">← Zurück</button>
+                <button class="btn btn-primary" onclick="sendToErwin()" style="font-size:1.1em; padding:18px 35px; background: linear-gradient(135deg, #9b59b6, #8e44ad);">
+                    ✨ Erwin: Charakter perfekt machen!
+                </button>
+                <button class="btn btn-primary" onclick="generatePDF()" style="font-size:1.1em; padding:18px 35px;">
+                    📄 PDF Eigen
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scroll to top -->
+    <div class="scroll-top" id="scrollTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+        ⬆️
+    </div>
+
+<script>
+// ==================== DATA ====================
+const RACE_DATA = {
+    mensch: { name: "Mensch", desc: "Anpassungsfähig und vielseitig — der klassische Held", emoji: "🧑" },
+    zwerg: { name: "Zwerg", desc: "Stur, handwerklich begabt und widerstandsfähig gegen Gift", emoji: "🧔" },
+    elf: { name: "Elf", desc: "Anmutig, unsterblich erscheinend und magisch veranlagt", emoji: "🧝" },
+    halbling: { name: "Halbling", desc: "Klein, glücklich und erstaunlich mutig", emoji: "🧚" },
+    drachenbluetiger: { name: "Drachenblütiger", desc: "Menschlich mit dem Erbe eines Drachen", emoji: "🐉" },
+    halbork: { name: "Halbork", desc: "Stark, zäh und zerrissen zwischen zwei Welten", emoji: "👹" },
+    gnom: { name: "Gnom", desc: "Klein, intelligent und erfinderisch", emoji: "🧙" },
+    halbelf: { name: "Halbelf", desc: "Die Brücke zwischen Mensch und Elf", emoji: "🧝‍♀️" },
+    tiefling: { name: "Tiefling", desc: "Menschlich mit einem Höllenerbe", emoji: "😈" }
+};
+
+const CLASS_DATA = {
+    barbar: { name: "Barbar", desc: "Kampfkünstler mit tierischer Wut und gewaltiger Stärke", emoji: "⚔️", hitDie: 12, skills: ["Athletik", "Tierkunde", "Einschüchterung", "Naturkunde", "Wahrnehmung", "Überleben"], selectSkills: 2, spells: false },
+    barde: { name: "Barde", desc: "Magischer Unterhalter, Diplomat und Meister der Täuschung", emoji: "🎵", hitDie: 8, skills: ["Akrobatik", "Täuschung", "Einsicht", "Einschüchterung", "Auftreten", "Überzeugung"], selectSkills: 3, spells: true },
+    druide: { name: "Druide", desc: "Naturmagie, Verwandlung und das Gleichgewicht der Wildnis", emoji: "🌿", hitDie: 8, skills: ["Arkane Kunde", "Tierkunde", "Einsicht", "Medizin", "Naturkunde", "Wahrnehmung", "Religion", "Überleben"], selectSkills: 2, spells: true },
+    krieger: { name: "Krieger", desc: "Meister des Nahkampfs, trainiert in allen Waffen", emoji: "🛡️", hitDie: 10, skills: ["Akrobatik", "Tierkunde", "Athletik", "Geschichte", "Einsicht", "Einschüchterung", "Wahrnehmung", "Überleben"], selectSkills: 2, spells: false },
+    monk: { name: "Mönch", desc: "Kampfkünstler der Ki-Energie nutzt", emoji: "👊", hitDie: 8, skills: ["Akrobatik", "Athletik", "Geschichte", "Einsicht", "Religion"], selectSkills: 2, spells: false },
+    paladin: { name: "Paladin", desc: "Heiliger Kämpfer mit göttlicher Macht und Ethik", emoji: "✝️", hitDie: 10, skills: ["Athletik", "Einsicht", "Einschüchterung", "Medizin", "Überzeugung", "Religion"], selectSkills: 2, spells: true },
+    schurke: { name: "Schurke", desc: "Heimlicher Manipulator, Meuchelmörder und Dieb", emoji: "🗡️", hitDie: 8, skills: ["Akrobatik", "Täuschung", "Einsicht", "Einschüchterung", "Nachforschung", "Wissen", "Wahrnehmung", "Auftreten", "Überzeugung", "Fingerfertigkeit", "Heimlichkeit"], selectSkills: 4, spells: false },
+    kleriker: { name: "Kleriker", desc: "Göttlicher Zauberwirker, Heiler und Tempeldiener", emoji: "⛪", hitDie: 8, skills: ["Geschichte", "Einsicht", "Medizin", "Überzeugung", "Religion"], selectSkills: 2, spells: true },
+    zauberer: { name: "Zauberer", desc: "Meister der arkanen Magie und des Wissens", emoji: "🔮", hitDie: 6, skills: ["Arkane Kunde", "Geschichte", "Einsicht", "Nachforschung", "Medizin", "Religion"], selectSkills: 2, spells: true },
+    hexmeister: { name: "Hexmeister", desc: "Paktmagie mit dunklen Mächten", emoji: "🌙", hitDie: 8, skills: ["Arkane Kunde", "Täuschung", "Geschichte", "Einschüchterung", "Nachforschung", "Naturkunde", "Religion"], selectSkills: 2, spells: true },
+    waldlaeufer: { name: "Waldläufer", desc: "Naturgebundener Jäger mit tierischem Gefährten", emoji: "🏹", hitDie: 10, skills: ["Tierkunde", "Athletik", "Einsicht", "Nachforschung", "Naturkunde", "Wahrnehmung", "Heimlichkeit", "Überleben"], selectSkills: 3, spells: true }
+};
+
+const BACKGROUND_DATA = {
+    akolyth: { name: "Akolyth", desc: "Religiöser Diener eines Tempels", keywords: { tempel: "Dein Leben war dem Tempel geweiht.", berufung: "Eine göttliche Fügung rief dich zum Dienst.", zweifel: "Du kamst zum Glauben in einer Zeit der Verzweiflung.", opfer: "Du hast alles aufgegeben um zu dienen." }},
+    handwerker: { name: "Handwerker", desc: "Ausgebildeter Handwerksmeister", keywords: { lehre: "Du lerntest bei einem alten Meister.", selbst: "Du hast dir alles selbst beigebracht.", familien: "Deine Familie führt das Handwerk seit Generationen.", revolution: "Du erfandest eine neue Technik." }},
+    gelehrter: { name: "Gelehrter", desc: "Ausgebildeter Akademiker", keywords: { universitaet: "Du studiertest an einer großen Universität.", bibliothek: "Du verbrachtest Jahre in uralten Bibliotheken.", reise: "Du bereist die Welt für handschriften.", lehrer: "Du warst Lehrer an einer Akademie." }},
+    verbrecher: { name: "Verbrecher", desc: "Erfahrener Ganove und Dieb", keywords: { gilde: "Du warst Teil einer Diebesgilde.", strasse: "Du lerntest auf der Straße zu überleben.", gefaengnis: "Du saßest im Gefängnis und entkamst.", entfuehrung: "Du wurdest als Kind entführt und aufgezogen." }},
+    jaeger: { name: "Jäger", desc: "Erfahrener Wildnisführer", keywords: { karawane: "Du führteest Karawanen durch gefährliche Gebiete.", jagd: "Du warst ein Jäger der die Wälder kannte.", flucht: "Du flohst in die Wildnis und überlebtest dort Jahre.", stamm: "Du lebtest mit einem Naturvolk zusammen." }},
+    soldaten: { name: "Soldat", desc: "Ehemaliger Krieger", keywords: { armee: "Du kämpftest für eine große Armee.", soeldner: "Du warst ein Söldner der für Gold kämpfte.", garde: "Du warst Teil der königlichen Garde.", buergerwehr: "Du kämpftest in der Bürgerwehr." }},
+    adliger: { name: "Adliger", desc: "Geburtsadeliger mit Einfluss", keywords: { erbe: "Du bist der Erbe eines alten Adelshauses.", neubuerger: "Deine Familie kaufte sich den Adelstitel.", exil: "Du lebst im Exil nachdem dein Haus fiel.", zerrissen: "Du hasst die Pflichten deines Standes." }},
+    schiffsvolk: { name: "Schiffsvolk", desc: "Erfahrener Seemann", keywords: { handel: "Du segeltest auf Handelsschiffen.", piraterie: "Du warst Teil einer Piratencrew.", marine: "Du dientest in der königlichen Marine.", ungeheuer: "Dein Schiff wurde von einem Seeungeheuer angegriffen." }},
+    kuenstler: { name: "Künstler", desc: "Inspirierter Wanderkünstler", keywords: { barden: "Du warst Teil einer Bardengruppe.", zirkus: "Du tratst in einem fahrenden Zirkus auf.", prophecy: "Eine Prophezeiung trieb dich in die Welt.", vergangenheit: "Du warst einst wichtig aber deine besten Tage sind vorbei." }},
+    obdachloser: { name: "Obdachloser", desc: "Obdachloser mit hartem Leben", keywords: { strasse: "Du wuchsest auf der Straße auf.", waise: "Du warst eine Waise.", gefluechtet: "Du flohst wegen Krieg oder Verfolgung.", schulden: "Du bist vor einem mächtigen Gläubiger geflohen." }}
+};
+
+const ABILITY_NAMES = { STR: "Stärke", DEX: "Geschick", CON: "Konstitution", INT: "Intelligenz", WIS: "Weisheit", CHA: "Charisma" };
+
+const SKILL_DATA = {
+    "Akrobatik": "DEX", "Tierkunde": "WIS", "Arkane Kunde": "INT", "Athletik": "STR",
+    "Täuschung": "CHA", "Geschichte": "INT", "Einsicht": "WIS", "Einschüchterung": "CHA",
+    "Nachforschung": "INT", "Wissen": "INT", "Medizin": "WIS", "Naturkunde": "INT",
+    "Wahrnehmung": "WIS", "Auftreten": "CHA", "Überzeugung": "CHA", "Religion": "INT",
+    "Fingerfertigkeit": "DEX", "Heimlichkeit": "DEX", "Überleben": "WIS"
+};
+
+// ==================== STATE ====================
+let character = {
+    race: null, class: null, background: null,
+    abilities: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+    skills: [], backstory: "", name: "", playerName: "", alignment: "", gender: "", xp: 0
+};
+let currentStep = 1;
+let pointBuyUsed = false;
+let remainingPoints = 27;
+
+// ==================== INIT ====================
+function init() {
+    createBubbles();
+    renderRaces();
+    renderClasses();
+    renderBackgrounds();
+    renderAbilities();
+    renderSkills();
+    updateProgress();
+    
+    document.getElementById('charName').addEventListener('input', checkName);
+    window.addEventListener('scroll', () => {
+        document.getElementById('scrollTop').classList.toggle('visible', window.scrollY > 300);
+    });
+}
+
+function createBubbles() {
+    const container = document.getElementById('bgAnimation');
+    for (let i = 0; i < 20; i++) {
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        const size = Math.random() * 100 + 30;
+        bubble.style.width = size + 'px';
+        bubble.style.height = size + 'px';
+        bubble.style.left = Math.random() * 100 + '%';
+        bubble.style.animationDuration = (Math.random() * 20 + 15) + 's';
+        bubble.style.animationDelay = (Math.random() * 10) + 's';
+        container.appendChild(bubble);
+    }
+}
+
+// ==================== RENDER ====================
+function renderRaces() {
+    const grid = document.getElementById('raceGrid');
+    grid.innerHTML = '';
+    for (const [key, race] of Object.entries(RACE_DATA)) {
+        grid.innerHTML += `
+            <div class="selection-card" onclick="selectRace('${key}')" id="race-${key}">
+                <span class="badge">✓</span>
+                <h3>${race.emoji} ${race.name}</h3>
+                <p>${race.desc}</p>
+            </div>
+        `;
+    }
+}
+
+function renderClasses() {
+    const grid = document.getElementById('classGrid');
+    grid.innerHTML = '';
+    for (const [key, cls] of Object.entries(CLASS_DATA)) {
+        grid.innerHTML += `
+            <div class="selection-card" onclick="selectClass('${key}')" id="class-${key}">
+                <span class="badge">✓</span>
+                <h3>${cls.emoji} ${cls.name}</h3>
+                <p>${cls.desc}</p>
+                <p><small>Trefferwürfel: W${cls.hitDie}</small></p>
+            </div>
+        `;
+    }
+}
+
+function renderBackgrounds() {
+    const grid = document.getElementById('backgroundGrid');
+    grid.innerHTML = '';
+    for (const [key, bg] of Object.entries(BACKGROUND_DATA)) {
+        grid.innerHTML += `
+            <div class="selection-card" onclick="selectBackground('${key}')" id="bg-${key}">
+                <span class="badge">✓</span>
+                <h3>📜 ${bg.name}</h3>
+                <p>${bg.desc}</p>
+            </div>
+        `;
+    }
+}
+
+function renderAbilities() {
+    const grid = document.getElementById('abilityGrid');
+    grid.innerHTML = '';
+    const keys = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+    
+    keys.forEach(key => {
+        const mod = getMod(character.abilities[key]);
+        const modStr = mod >= 0 ? `+${mod}` : mod;
+        
+        grid.innerHTML += `
+            <div class="ability-box">
+                <div class="ability-name">${ABILITY_NAMES[key]}</div>
+                <input type="number" class="ability-input" id="score-${key}" 
+                       value="${character.abilities[key]}" min="1" max="20"
+                       onchange="updateAbility('${key}', this.value)">
+                <div class="ability-modifier ${mod < 0 ? 'negative' : ''}">${modStr}</div>
+            </div>
+        `;
+    });
+}
+
+function renderSkills() {
+    const list = document.getElementById('skillList');
+    list.innerHTML = '';
+    
+    const cls = CLASS_DATA[character.class];
+    if (!cls) return;
+    
+    document.getElementById('skillCount').textContent = cls.selectSkills;
+    
+    for (const [skill, ability] of Object.entries(SKILL_DATA)) {
+        const isFromClass = cls.skills.includes(skill);
+        const isSelected = character.skills.includes(skill);
+        const prof = isSelected ? (isFromClass ? 2 : 1) : 0;
+        const bonus = getMod(character.abilities[ability]) + prof;
+        const bonusStr = bonus >= 0 ? `+${bonus}` : bonus;
+        
+        list.innerHTML += `
+            <div class="skill-item ${isFromClass ? 'from-class' : ''}">
+                <input type="checkbox" id="skill-${skill}" 
+                       ${isSelected ? 'checked' : ''}
+                       ${!isFromClass && character.skills.length >= cls.selectSkills && !isSelected ? 'disabled' : ''}
+                       onchange="toggleSkill('${skill}')">
+                <label for="skill-${skill}">${skill}</label>
+                <span class="ability-tag">${ABILITY_NAMES[ability]}</span>
+                <span class="bonus">${bonusStr}</span>
+            </div>
+        `;
+    }
+}
+
+function renderKeywords() {
+    const grid = document.getElementById('keywordGrid');
+    const bg = BACKGROUND_DATA[character.background];
+    if (!bg || !bg.keywords) return;
+    
+    grid.innerHTML = '';
+    for (const [key, text] of Object.entries(bg.keywords)) {
+        grid.innerHTML += `
+            <div class="keyword-card" onclick="selectKeyword('${key}', this)">
+                <h4>${key.charAt(0).toUpperCase() + key.slice(1)}</h4>
+                <p>${text}</p>
+            </div>
+        `;
+    }
+}
+
+// ==================== HANDLERS ====================
+function selectRace(key) {
+    character.race = key;
+    document.querySelectorAll('#raceGrid .selection-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById(`race-${key}`).classList.add('selected');
+    document.getElementById('btn1').disabled = false;
+    createParticles(event);
+}
+
+function selectClass(key) {
+    character.class = key;
+    character.skills = [];
+    document.querySelectorAll('#classGrid .selection-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById(`class-${key}`).classList.add('selected');
+    document.getElementById('btn2').disabled = false;
+    renderSkills();
+    renderEquipment();
+    createParticles(event);
+}
+
+function selectBackground(key) {
+    character.background = key;
+    document.querySelectorAll('#backgroundGrid .selection-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById(`bg-${key}`).classList.add('selected');
+    document.getElementById('btn3').disabled = false;
+    renderKeywords();
+    createParticles(event);
+}
+
+function selectKeyword(key, el) {
+    el.classList.toggle('selected');
+    updateStory();
+}
+
+function updateStory() {
+    const bg = BACKGROUND_DATA[character.background];
+    if (!bg || !bg.keywords) return;
+    
+    let parts = [];
+    document.querySelectorAll('.keyword-card.selected').forEach(el => {
+        const key = el.querySelector('h4').textContent.toLowerCase();
+        if (bg.keywords[key]) parts.push(bg.keywords[key]);
+    });
+    
+    let story = bg.name + ' — ';
+    story += parts.length ? parts.join(' ') : 'Wähle Schlüsselwörter für deine Geschichte...';
+    
+    document.getElementById('storyPreview').textContent = story;
+    character.backstory = story;
+}
+
+function toggleSkill(skill) {
+    const cls = CLASS_DATA[character.class];
+    const isFromClass = cls.skills.includes(skill);
+    const idx = character.skills.indexOf(skill);
+    
+    if (idx >= 0) {
+        character.skills.splice(idx, 1);
+    } else if (isFromClass || character.skills.length < cls.selectSkills) {
+        character.skills.push(skill);
+    }
+    
+    renderSkills();
+    document.getElementById('btn4').disabled = character.skills.length < cls.selectSkills;
+}
+
+function rollAbilities() {
+    const keys = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+    const btn = document.querySelector('.btn-dice');
+    btn.classList.add('rolling');
+    setTimeout(() => btn.classList.remove('rolling'), 500);
+    
+    keys.forEach(key => {
+        const dice = [Math.random()*6+1, Math.random()*6+1, Math.random()*6+1, Math.random()*6+1];
+        dice.sort((a,b) => a-b);
+        character.abilities[key] = Math.floor(dice[1]+dice[2]+dice[3]);
+    });
+    
+    pointBuyUsed = false;
+    renderAbilities();
+    renderSkills();
+    
+    document.querySelectorAll('.ability-input').forEach(inp => inp.classList.add('rolling'));
+    setTimeout(() => document.querySelectorAll('.ability-input').forEach(i => i.classList.remove('rolling')), 500);
+}
+
+function usePointBuy() {
+    pointBuyUsed = true;
+    remainingPoints = 27;
+    ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'].forEach(key => character.abilities[key] = 10);
+    renderAbilities();
+    renderSkills();
+}
+
+function updateAbility(key, value) {
+    if (pointBuyUsed) {
+        const old = character.abilities[key];
+        const neu = Math.max(8, Math.min(15, parseInt(value) || 10));
+        const diff = getPointCost(old) - getPointCost(neu);
+        
+        if (remainingPoints + diff >= 0) {
+            character.abilities[key] = neu;
+            remainingPoints += diff;
+        } else {
+            document.getElementById(`score-${key}`).value = old;
+            return;
+        }
+    } else {
+        character.abilities[key] = Math.max(1, Math.min(20, parseInt(value) || 10));
+    }
+    renderAbilities();
+    renderSkills();
+}
+
+function getPointCost(score) {
+    if (score <= 8) return 0;
+    if (score <= 10) return score - 8;
+    if (score <= 12) return 2 + (score - 10);
+    if (score <= 14) return 4 + (score - 12);
+    return 7 + (score - 14);
+}
+
+function renderEquipment() {
+    const cls = CLASS_DATA[character.class];
+    if (!cls) return;
+    
+    document.getElementById('equipmentDisplay').innerHTML = `
+        <p style="color:var(--gold); margin-bottom:15px;">Start-Ausrüstung:</p>
+        <div class="grid grid-2">
+            ${cls.spells ? '<p>✨ Zauberausrüstung (Fokus, Komponentenbeutel)</p>' : ''}
+        </div>
+        <p>Diese Ausrüstung erhältst du automatisch beim Start.</p>
+    `;
+}
+
+function checkName() {
+    const name = document.getElementById('charName').value.trim();
+    character.name = name; // Sync with character object
+    document.getElementById('btn6').disabled = !name;
+}
+
+// ==================== NAVIGATION ====================
+function nextStep(current) {
+    if (current === 4) renderSkills();
+    if (current === 6) {
+        character.name = document.getElementById('charName')?.value?.trim() || '';
+        character.alignment = document.getElementById('alignment').value;
+        character.gender = document.getElementById('gender').value;
+        character.xp = parseInt(document.getElementById('xp').value) || 0;
+    }
+    
+    document.getElementById(`step${current}`).classList.add('hidden');
+    document.getElementById(`step${current + 1}`).classList.remove('hidden');
+    currentStep++;
+    updateProgress();
+    window.scrollTo(0, 0);
+    
+    if (currentStep === 6) renderKeywords();
+    if (currentStep === 7) renderSummary();
+}
+
+function prevStep(current) {
+    document.getElementById(`step${current}`).classList.add('hidden');
+    document.getElementById(`step${current - 1}`).classList.remove('hidden');
+    currentStep--;
+    updateProgress();
+    window.scrollTo(0, 0);
+}
+
+function updateProgress() {
+    const pct = ((currentStep - 1) / 6) * 100;
+    document.getElementById('progressLine').style.width = pct + '%';
+    
+    document.querySelectorAll('.step-indicator').forEach(ind => {
+        const step = parseInt(ind.dataset.step);
+        ind.classList.remove('active', 'completed');
+        if (step === currentStep) ind.classList.add('active');
+        else if (step < currentStep) ind.classList.add('completed');
+    });
+}
+
+// ==================== SUMMARY ====================
+function renderSummary() {
+    const race = RACE_DATA[character.race];
+    const cls = CLASS_DATA[character.class];
+    const bg = BACKGROUND_DATA[character.background];
+    const maxHP = cls.hitDie + getMod(character.abilities.CON);
+    
+    const grid = document.getElementById('summaryGrid');
+    grid.innerHTML = `
+        <div class="summary-card"><div class="label">Name</div><div class="value">${character.name}</div></div>
+        <div class="summary-card"><div class="label">Volk</div><div class="value">${race?.name || ''}</div></div>
+        <div class="summary-card"><div class="label">Klasse</div><div class="value">${cls?.name || ''}</div></div>
+        <div class="summary-card"><div class="label">Hintergrund</div><div class="value">${bg?.name || ''}</div></div>
+        <div class="summary-card"><div class="label">Stärke</div><div class="value">${character.abilities.STR} (${fmtMod(character.abilities.STR)})</div></div>
+        <div class="summary-card"><div class="label">Geschick</div><div class="value">${character.abilities.DEX} (${fmtMod(character.abilities.DEX)})</div></div>
+        <div class="summary-card"><div class="label">Konstitution</div><div class="value">${character.abilities.CON} (${fmtMod(character.abilities.CON)})</div></div>
+        <div class="summary-card"><div class="label">Trefferpunkte</div><div class="value">${maxHP}</div></div>
+    `;
+    
+    document.getElementById('pdfPreview').innerHTML = `
+        <h1 style="background:linear-gradient(135deg,#ffd700,#b8860b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:2em;margin-bottom:10px;">⚔️ ${character.name} ⚔️</h1>
+        <p style="color:#666;font-size:1.1em;margin-bottom:15px;">${race?.name || ''} ${cls?.name || ''} der Stufe 1 ${character.gender ? '• ' + character.gender : ''}</p>
+        <p style="color:#888;"><strong>Hintergrund:</strong> ${bg?.name || ''} • <strong>Weltanschauung:</strong> ${character.alignment || 'Unbestimmt'}</p>
+        <hr style="margin:20px 0;border-color:#ffd700;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;text-align:center;">
+            <div style="background:rgba(255,215,0,0.1);padding:15px;border-radius:10px;">
+                <div style="color:#888;font-size:0.8em;">STÄRKE</div>
+                <div style="font-size:2em;color:#ffd700;font-weight:bold;">${character.abilities.STR}</div>
+                <div style="color:#b8860b;">${fmtMod(character.abilities.STR)}</div>
+            </div>
+            <div style="background:rgba(255,215,0,0.1);padding:15px;border-radius:10px;">
+                <div style="color:#888;font-size:0.8em;">GESCHICK</div>
+                <div style="font-size:2em;color:#ffd700;font-weight:bold;">${character.abilities.DEX}</div>
+                <div style="color:#b8860b;">${fmtMod(character.abilities.DEX)}</div>
+            </div>
+            <div style="background:rgba(255,215,0,0.1);padding:15px;border-radius:10px;">
+                <div style="color:#888;font-size:0.8em;">KONSTITUTION</div>
+                <div style="font-size:2em;color:#ffd700;font-weight:bold;">${character.abilities.CON}</div>
+                <div style="color:#b8860b;">${fmtMod(character.abilities.CON)}</div>
+            </div>
+            <div style="background:rgba(255,215,0,0.1);padding:15px;border-radius:10px;">
+                <div style="color:#888;font-size:0.8em;">INTELLIGENZ</div>
+                <div style="font-size:2em;color:#ffd700;font-weight:bold;">${character.abilities.INT}</div>
+                <div style="color:#b8860b;">${fmtMod(character.abilities.INT)}</div>
+            </div>
+            <div style="background:rgba(255,215,0,0.1);padding:15px;border-radius:10px;">
+                <div style="color:#888;font-size:0.8em;">WEISHEIT</div>
+                <div style="font-size:2em;color:#ffd700;font-weight:bold;">${character.abilities.WIS}</div>
+                <div style="color:#b8860b;">${fmtMod(character.abilities.WIS)}</div>
+            </div>
+            <div style="background:rgba(255,215,0,0.1);padding:15px;border-radius:10px;">
+                <div style="color:#888;font-size:0.8em;">CHARISMA</div>
+                <div style="font-size:2em;color:#ffd700;font-weight:bold;">${character.abilities.CHA}</div>
+                <div style="color:#b8860b;">${fmtMod(character.abilities.CHA)}</div>
+            </div>
+        </div>
+        <p style="color:#c41e3a;"><strong>Trefferpunkte:</strong> ${maxHP} | <strong>Fertigkeiten:</strong> ${character.skills.join(', ')}</p>
+        <hr style="margin:20px 0;border-color:#ffd700;">
+        <p style="color:#333;font-style:italic;line-height:1.6;">${character.backstory || 'Keine Geschichte.'}</p>
+    `;
+}
+
+// ==================== PDF ====================
+function generatePDF() {
+    console.log('generatePDF called');
+    if (!window.jspdf) {
+        console.error('jsPDF not loaded');
+        alert('PDF-Bibliothek noch nicht geladen, bitte warten');
+        return;
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    
+    const race = RACE_DATA[character.race];
+    const cls = CLASS_DATA[character.class];
+    const bg = BACKGROUND_DATA[character.background];
+    const maxHP = cls.hitDie + getMod(character.abilities.CON);
+    const prof = 2;
+    
+    // Epic Fantasy Color Palette
+    const darkBg = [15, 15, 35];
+    const gold = [212, 175, 55];
+    const goldDark = [180, 140, 50];
+    const purple = [120, 60, 160];
+    const crimson = [180, 40, 50];
+    const silver = [200, 200, 210];
+    const darkText = [30, 30, 50];
+    const lightText = [245, 240, 230];
+    const grayText = [100, 95, 90];
+    
+    // Class color accents
+    const classColors = {
+        barbar: [200, 60, 40],
+        krieger: [180, 140, 60],
+        paladin: [220, 200, 80],
+        kleriker: [240, 220, 160],
+        druide: [80, 160, 80],
+        waldlaeufer: [100, 180, 100],
+        schurke: [100, 80, 140],
+        barde: [160, 80, 180],
+        zauberer: [80, 100, 200],
+        hexmeister: [100, 40, 140],
+        monk: [180, 140, 100],
+    };
+    const accentColor = classColors[character.class] || gold;
+    
+    // ===== BACKGROUND =====
+    // Dark gradient background
+    doc.setFillColor(...darkBg);
+    doc.rect(0, 0, 210, 297, 'F');
+    
+    // Subtle texture pattern (diagonal lines)
+    doc.setDrawColor(40, 40, 60);
+    doc.setLineWidth(0.2);
+    for (let i = -300; i < 500; i += 8) {
+        doc.line(i, 0, i + 300, 297);
+    }
+    
+    // ===== DECORATIVE BORDER =====
+    // Outer border
+    doc.setDrawColor(...gold);
+    doc.setLineWidth(1.5);
+    doc.rect(8, 8, 194, 281);
+    
+    // Inner border
+    doc.setDrawColor(...goldDark);
+    doc.setLineWidth(0.5);
+    doc.rect(11, 11, 188, 275);
+    
+    // Corner ornaments
+    const corners = [[8, 8], [202, 8], [8, 289], [202, 289]];
+    corners.forEach(([cx, cy], i) => {
+        const sx = i % 2 === 0 ? 1 : -1;
+        const sy = i < 2 ? 1 : -1;
+        doc.setFillColor(...gold);
+        doc.circle(cx, cy, 3, 'F');
+        doc.setDrawColor(...gold);
+        doc.setLineWidth(0.3);
+        doc.line(cx + sx * 5, cy, cx + sx * 15, cy);
+        doc.line(cx, cy + sy * 5, cx, cy + sy * 15);
+    });
+    
+    // ===== HEADER BANNER =====
+    // Banner background
+    doc.setFillColor(...darkBg);
+    doc.rect(13, 10, 184, 28, 'F');
+    
+    // Banner border with accent color
+    doc.setDrawColor(...accentColor);
+    doc.setLineWidth(2);
+    doc.rect(13, 10, 184, 28);
+    
+    // Character name
+    doc.setTextColor(...lightText);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text(character.name || 'Unbenannter Held', 105, 25, { align: 'center' });
+    
+    // Class, race, background line
+    doc.setFontSize(10);
+    doc.setTextColor(...silver);
+    doc.setFont('helvetica', 'normal');
+    const headerLine = `${cls?.name || ''} der Stufe 1  •  ${race?.name || ''}  •  ${bg?.name || ''}${character.gender ? '  •  ' + character.gender : ''}`;
+    doc.text(headerLine, 105, 33, { align: 'center' });
+    
+    // ===== LEFT COLUMN (Abilities + Combat) =====
+    let y = 45;
+    const leftX = 15;
+    
+    // Section: Attribute
+    doc.setFillColor(...accentColor);
+    doc.rect(leftX, y, 55, 6, 'F');
+    doc.setTextColor(...lightText);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ATTRIBUTE', leftX + 3, y + 4.5);
+    
+    y += 9;
+    const abilities = [
+        { key: 'STR', name: 'STÄRKE', symbol: '⬢' },
+        { key: 'DEX', name: 'GESCHICK', symbol: '◇' },
+        { key: 'CON', name: 'KONSTITUTION', symbol: '◆' },
+        { key: 'INT', name: 'INTELLIGENZ', symbol: '○' },
+        { key: 'WIS', name: 'WEISHEIT', symbol: '□' },
+        { key: 'CHA', name: 'CHARISMA', symbol: '◈' }
+    ];
+    
+    // Draw ability boxes in 2x3 grid
+    abilities.forEach((abil, i) => {
+        const ax = leftX + (i % 3) * 20;
+        const ay = y + Math.floor(i / 3) * 24;
+        
+        // Box with gradient effect
+        doc.setFillColor(25, 25, 50);
+        doc.rect(ax, ay, 18, 22, 'F');
+        doc.setDrawColor(...accentColor);
+        doc.setLineWidth(0.5);
+        doc.rect(ax, ay, 18, 22);
+        
+        // Ability name
+        doc.setTextColor(...silver);
+        doc.setFontSize(4.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text(abil.name, ax + 9, ay + 5, { align: 'center' });
+        
+        // Score
+        doc.setTextColor(...lightText);
+        doc.setFontSize(13);
+        doc.text(`${character.abilities[abil.key]}`, ax + 9, ay + 13, { align: 'center' });
+        
+        // Modifier
+        const mod = fmtMod(character.abilities[abil.key]);
+        doc.setTextColor(...gold);
+        doc.setFontSize(9);
+        doc.text(mod, ax + 9, ay + 19, { align: 'center' });
+    });
+    
+    y += 52;
+    
+    // Section: Kampfinfo
+    doc.setFillColor(...accentColor);
+    doc.rect(leftX, y, 55, 6, 'F');
+    doc.setTextColor(...lightText);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('KAMPFWERTE', leftX + 3, y + 4.5);
+    
+    y += 9;
+    
+    // HP Box (larger, prominent)
+    doc.setFillColor(40, 20, 20);
+    doc.rect(leftX, y, 35, 14, 'F');
+    doc.setDrawColor(...crimson);
+    doc.setLineWidth(1);
+    doc.rect(leftX, y, 35, 14);
+    doc.setTextColor(...silver);
+    doc.setFontSize(5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TREFFERPUNKTE', leftX + 17.5, y + 4, { align: 'center' });
+    doc.setTextColor(...lightText);
+    doc.setFontSize(12);
+    doc.text(`${maxHP}`, leftX + 17.5, y + 11, { align: 'center' });
+    
+    // AC Box
+    doc.setFillColor(20, 30, 40);
+    doc.rect(leftX + 37, y, 18, 14, 'F');
+    doc.setDrawColor(...silver);
+    doc.setLineWidth(0.5);
+    doc.rect(leftX + 37, y, 18, 14);
+    doc.setTextColor(...silver);
+    doc.setFontSize(5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RÜSTUNG', leftX + 46, y + 4, { align: 'center' });
+    doc.setTextColor(...lightText);
+    doc.setFontSize(10);
+    doc.text('10', leftX + 46, y + 11, { align: 'center' });
+    
+    y += 17;
+    
+    // INIT, Speed, Prof, Spell
+    const stats = [
+        { label: 'INIT', value: fmtMod(character.abilities.DEX) },
+        { label: 'TEMPO', value: '9m' },
+        { label: 'COMP', value: `+${prof}` },
+        { label: 'SG', value: '8' }
+    ];
+    
+    stats.forEach((stat, i) => {
+        const sx = leftX + i * 14;
+        doc.setFillColor(20, 20, 35);
+        doc.rect(sx, y, 12, 10, 'F');
+        doc.setDrawColor(...grayText);
+        doc.setLineWidth(0.3);
+        doc.rect(sx, y, 12, 10);
+        
+        doc.setTextColor(...silver);
+        doc.setFontSize(4);
+        doc.setFont('helvetica', 'bold');
+        doc.text(stat.label, sx + 6, y + 4, { align: 'center' });
+        doc.setTextColor(...lightText);
+        doc.setFontSize(8);
+        doc.text(stat.value, sx + 6, y + 8.5, { align: 'center' });
+    });
+    
+    y += 14;
+    
+    // ===== RIGHT COLUMN (Skills) =====
+    const rightX = 75;
+    y = 45;
+    
+    doc.setFillColor(...accentColor);
+    doc.rect(rightX, y, 120, 6, 'F');
+    doc.setTextColor(...lightText);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FERTIGKEITEN', rightX + 3, y + 4.5);
+    
+    y += 9;
+    
+    const skillMap = {
+        "Akrobatik": "DEX", "Tierkunde": "WIS", "Arkane Kunde": "INT", "Athletik": "STR",
+        "Täuschung": "CHA", "Geschichte": "INT", "Einsicht": "WIS", "Einschüchterung": "CHA",
+        "Nachforschung": "INT", "Wissen": "INT", "Medizin": "WIS", "Naturkunde": "INT",
+        "Wahrnehmung": "WIS", "Auftreten": "CHA", "Überzeugung": "CHA", "Religion": "INT",
+        "Fingerfertigkeit": "DEX", "Heimlichkeit": "DEX", "Überleben": "WIS"
+    };
+    
+    const sortedSkills = Object.entries(skillMap).sort((a, b) => a[1].localeCompare(b[1]));
+    
+    let skillY = y;
+    let col = 0;
+    
+    sortedSkills.forEach(([skillName, abil], idx) => {
+        if (idx > 0 && idx % 10 === 0) {
+            col = 1;
+            skillY = y;
+        }
+        
+        const sx = rightX + col * 60;
+        const isProficient = character.skills.includes(skillName);
+        const mod = getMod(character.abilities[abil]) + (isProficient ? prof : 0);
+        
+        // Skill row background (alternating)
+        if (idx % 2 === 0) {
+            doc.setFillColor(25, 25, 50);
+            doc.rect(sx - 1, skillY - 1, 58, 7, 'F');
+        }
+        
+        // Proficiency checkbox
+        doc.setDrawColor(isProficient ? gold : grayText);
+        doc.setLineWidth(0.3);
+        doc.rect(sx, skillY, 3.5, 3.5);
+        if (isProficient) {
+            doc.setFillColor(...gold);
+            doc.rect(sx, skillY, 3.5, 3.5, 'F');
+            // Draw X inside checkbox
+            doc.setDrawColor(...darkBg);
+            doc.setLineWidth(0.5);
+            doc.line(sx + 0.7, skillY + 0.7, sx + 2.8, skillY + 2.8);
+            doc.line(sx + 2.8, skillY + 0.7, sx + 0.7, skillY + 2.8);
+        }
+        
+        // Skill name
+        doc.setTextColor(isProficient ? lightText : silver);
+        doc.setFontSize(6);
+        doc.setFont('helvetica', isProficient ? 'bold' : 'normal');
+        doc.text(skillName, sx + 5, skillY + 2.5);
+        
+        // Ability tag
+        doc.setTextColor(...grayText);
+        doc.setFontSize(4.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(abil, sx + 5, skillY + 5);
+        
+        // Modifier
+        doc.setTextColor(isProficient ? gold : silver);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'bold');
+        doc.text(fmtMod(mod), sx + 54, skillY + 2.5);
+        
+        skillY += 7;
+    });
+    
+    // ===== BOTTOM SECTION =====
+    y = 155;
+    
+    // Personality section
+    doc.setFillColor(...accentColor);
+    doc.rect(leftX, y, 185, 6, 'F');
+    doc.setTextColor(...lightText);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PERSÖNLICHKEIT  •  WELTANSCHAUUNG  •  IDEOGRAPHEN', leftX + 3, y + 4);
+    
+    y += 9;
+    
+    // Alignment & XP
+    doc.setFillColor(25, 25, 50);
+    doc.rect(leftX, y, 90, 8, 'F');
+    doc.rect(rightX, y, 90, 8, 'F');
+    
+    doc.setTextColor(...silver);
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'bold');
+    doc.text('WELTANSCHAUUNG:', leftX + 3, y + 5);
+    doc.text('ERFAHRUNGSPUNKTE:', rightX + 3, y + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...lightText);
+    doc.text(character.alignment || 'Unbestimmt', leftX + 35, y + 5);
+    doc.text(`${character.xp || 0} XP`, rightX + 35, y + 5);
+    
+    y += 12;
+    
+    // 4 personality trait lines
+    doc.setDrawColor(...goldDark);
+    doc.setLineWidth(0.3);
+    for (let i = 0; i < 4; i++) {
+        doc.line(leftX, y, 200, y);
+        y += 8;
+    }
+    
+    y += 3;
+    
+    // Story section
+    doc.setFillColor(...accentColor);
+    doc.rect(leftX, y, 185, 6, 'F');
+    doc.setTextColor(...lightText);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('HINTERGRUND & GESCHICHTE', leftX + 3, y + 4);
+    
+    y += 9;
+    doc.setTextColor(...silver);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    const storyText = character.backstory || `${bg?.name || 'Charakter'} — Die Geschichte dieses Helden beginnt hier...`;
+    const storyLines = doc.splitTextToSize(storyText, 180);
+    doc.text(storyLines.slice(0, 3), leftX + 3, y + 4);
+    
+    y += Math.min(storyLines.length * 4 + 5, 20);
+    
+    // Class features & Equipment
+    doc.setFillColor(...accentColor);
+    doc.rect(leftX, y, 90, 6, 'F');
+    doc.rect(rightX, y, 90, 6, 'F');
+    doc.setTextColor(...lightText);
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'bold');
+    doc.text('KLASSEN-EIGENSCHAFTEN', leftX + 3, y + 4);
+    doc.text('AUSRÜSTUNG', rightX + 3, y + 4);
+    
+    y += 9;
+    doc.setTextColor(...lightText);
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${cls?.name || 'Klasse'} (Stufe 1)`, leftX + 3, y);
+    doc.setFont('helvetica', 'normal');
+    
+    const classFeatures = {
+        barbar: ['Rage (2/SR)', 'Unarmored Defense'],
+        barde: ['Bardic Inspiration (1/WR)', 'Spellcasting'],
+        druide: ['Druidic', 'Spellcasting'],
+        krieger: ['Fighting Style', 'Second Wind'],
+        monk: ['Unarmored Defense', 'Martial Arts'],
+        paladin: ['Divine Sense', 'Lay on Hands'],
+        schurke: ['Sneak Attack (1d6)', 'Thieves Cant'],
+        kleriker: ['Divine Domain', 'Spellcasting'],
+        zauberer: ['Spellcasting', 'Arcane Recovery'],
+        hexmeister: ['Pact Magic', 'Eldritch Invocations'],
+        waldlaeufer: ['Natural Explorer', 'Spellcasting']
+    };
+    
+    let fy = y + 6;
+    (classFeatures[character.class] || []).forEach(f => {
+        doc.text(`◆ ${f}`, leftX + 3, fy);
+        fy += 5;
+    });
+    
+    const equipment = {
+        barbar: ['Zweihänder', '4x Streitkolben', '4x Wurfaxt'],
+        barde: ['Rapier', 'Dolch', 'Lauter'],
+        druide: ['Holzstab', 'Schild', 'Kräuterbeutel'],
+        krieger: ['Langschwert', 'Langbogen', 'Rüstung'],
+        monk: ['Kurzschwert', 'Heilertasche'],
+        paladin: ['Kriegshammer', 'Schild', 'Rüstung'],
+        schurke: ['Rapier', 'Kurzschwert', 'Diebeswerkzeug'],
+        kleriker: ['Stab', 'Streitkolben', 'Heilertasche'],
+        zauberer: ['Stab', 'Zauberbuch'],
+        hexmeister: ['Zauberbuch', 'Fokus'],
+        waldlaeufer: ['Langbogen', '20x Pfeil', 'Rucksack']
+    };
+    
+    let ey = y + 6;
+    (equipment[character.class] || ['Standard-Ausrüstung']).forEach(item => {
+        doc.text(`◆ ${item}`, rightX + 3, ey);
+        ey += 5;
+    });
+    
+    // ===== FOOTER =====
+    // Decorative footer line
+    doc.setDrawColor(...gold);
+    doc.setLineWidth(0.5);
+    doc.line(leftX, 280, 200, 280);
+    
+    // Footer text
+    doc.setTextColor(...grayText);
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'italic');
+    doc.text('D&D 5e Charakterbogen  •  Erstellt mit D&D Charakter Manager', 105, 285, { align: 'center' });
+    doc.text(`Generiert am ${new Date().toLocaleDateString('de-DE')}`, 105, 289, { align: 'center' });
+    
+    const filename = `${character.name || 'character'}_${cls?.name || 'unknown'}.pdf`;
+    doc.save(filename);
+}
+
+// ==================== HELPERS ====================
+function getMod(score) { return Math.floor((score - 10) / 2); }
+function fmtMod(score) { const m = getMod(score); return m >= 0 ? `+${m}` : `${m}`; }
+
+function createParticles(e) {
+    if (!e) return;
+    const container = document.getElementById('bgAnimation');
+    for (let i = 0; i < 8; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = (e.clientX + (Math.random() - 0.5) * 50) + 'px';
+        p.style.top = (e.clientY + (Math.random() - 0.5) * 50) + 'px';
+        container.appendChild(p);
+        setTimeout(() => p.remove(), 1000);
+    }
+}
+
+// ===== CHARACTER MANAGEMENT ====================
+const DATA_FILE = 'DnD_Charakter_Manager_Data.json';
+let characterDB = { characters: [], currentPlayer: '' };
+let selectedCharId = null;
+
+async function loadCharacterDB() {
+    try {
+        const res = await fetch(DATA_FILE);
+        if (res.ok) {
+            characterDB = await res.json();
+        }
+    } catch (e) {
+        console.log('No existing character data');
+    }
+    updateCharacterSelect();
+}
+
+async function saveCharacterDB() {
+    try {
+        const res = await fetch(DATA_FILE, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(characterDB)
+        });
+        return res.ok;
+    } catch (e) {
+        console.error('Save failed:', e);
+        return false;
+    }
+}
+
+function updateCharacterSelect(filterPlayer = '') {
+    const select = document.getElementById('charSelect');
+    select.innerHTML = '<option value="">— Charakter wählen —</option>';
+    
+    let filtered = characterDB.characters;
+    if (filterPlayer) {
+        filtered = filtered.filter(c => c.playerName && c.playerName.toLowerCase().includes(filterPlayer.toLowerCase()));
+    }
+    
+    filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    
+    filtered.forEach(char => {
+        const label = char.name || 'Unbenannt';
+        select.innerHTML += `<option value="${char.id}">${label}</option>`;
+    });
+    
+    document.getElementById('charCount').textContent = `${characterDB.characters.length} Helden`;
+}
+
+function filterByPlayer() {
+    const player = document.getElementById('playerFilter').value;
+    updateCharacterSelect(player);
+}
+
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+function newCharacter() {
+    selectedCharId = null;
+    character = {
+        race: null, class: null, background: null,
+        abilities: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+        skills: [], backstory: "", name: "", playerName: "", alignment: "", gender: "", xp: 0
+    };
+    currentStep = 1;
+    pointBuyUsed = false;
+    remainingPoints = 27;
+    
+    // Reset UI
+    document.getElementById('charSelect').value = '';
+    document.getElementById('btnSave').disabled = false;
+    document.getElementById('btnEdit').disabled = true;
+    document.getElementById('btnClone').disabled = true;
+    document.getElementById('btnDelete').disabled = true;
+    
+    // Reset name field
+    const nameInput = document.getElementById('charName');
+    if (nameInput) nameInput.value = '';
+    
+    // Reset all steps
+    for (let i = 1; i <= 7; i++) {
+        document.getElementById('step' + i).classList.add('hidden');
+    }
+    document.getElementById('step1').classList.remove('hidden');
+    updateProgress();
+    
+    window.scrollTo(0, 0);
+}
+
+function loadCharacter() {
+    const select = document.getElementById('charSelect');
+    const charId = select.value;
+    
+    if (!charId) {
+        document.getElementById('btnEdit').disabled = true;
+        document.getElementById('btnClone').disabled = true;
+        document.getElementById('btnDelete').disabled = true;
+        return;
+    }
+    
+    const char = characterDB.characters.find(c => c.id === charId);
+    if (char) {
+        selectedCharId = charId;
+        character = { ...char };
+        currentStep = 7;
+        
+        for (let i = 1; i <= 7; i++) {
+            document.getElementById('step' + i).classList.add('hidden');
+        }
+        document.getElementById('step7').classList.remove('hidden');
+        updateProgress();
+        
+        renderSummary();
+        
+        document.getElementById('btnEdit').disabled = false;
+        document.getElementById('btnClone').disabled = false;
+        document.getElementById('btnDelete').disabled = false;
+        document.getElementById('btnSave').disabled = false;
+        
+        window.scrollTo(0, 0);
+    }
+}
+
+async function saveCurrentCharacter() {
+    character.playerName = document.getElementById('playerFilter').value;
+    character.name = document.getElementById('charName').value.trim();
+    
+    if (!character.name) {
+        alert('Bitte gib dem Charakter einen Namen!');
+        return;
+    }
+    
+    if (selectedCharId) {
+        const idx = characterDB.characters.findIndex(c => c.id === selectedCharId);
+        if (idx >= 0) {
+            characterDB.characters[idx] = { ...character, id: selectedCharId };
+        }
+    } else {
+        character.id = generateId();
+        characterDB.characters.push(character);
+    }
+    
+    const result = await saveCharacterDB();
+    
+    if (result) {
+        updateCharacterSelect(document.getElementById('playerFilter').value);
+        document.getElementById('charSelect').value = character.id;
+        selectedCharId = character.id;
+        
+        const btn = document.getElementById('btnSave');
+        btn.textContent = '✅';
+        setTimeout(() => { btn.textContent = '💾'; }, 1500);
+    } else {
+        alert('Fehler beim Speichern!');
+    }
+}
+
+function editCharacter() {
+    if (!selectedCharId) return;
+    
+    const nameInput = document.getElementById('charName');
+    if (nameInput && character.name) {
+        nameInput.value = character.name;
+    }
+    
+    currentStep = 1;
+    
+    for (let i = 1; i <= 7; i++) {
+        document.getElementById('step' + i).classList.add('hidden');
+    }
+    document.getElementById('step1').classList.remove('hidden');
+    updateProgress();
+    window.scrollTo(0, 0);
+}
+
+function cloneCharacter() {
+    if (!selectedCharId) return;
+    
+    const original = characterDB.characters.find(c => c.id === selectedCharId);
+    if (original) {
+        const clone = { ...original, id: generateId(), name: original.name + ' (Kopie)' };
+        characterDB.characters.push(clone);
+        saveCharacterDB().then(() => {
+            updateCharacterSelect(document.getElementById('playerFilter').value);
+            document.getElementById('charSelect').value = clone.id;
+            loadCharacter();
+        });
+    }
+}
+
+async function deleteCharacter() {
+    if (!selectedCharId) return;
+    
+    if (confirm('Charakter "' + character.name + '" wirklich loeschen?')) {
+        characterDB.characters = characterDB.characters.filter(c => c.id !== selectedCharId);
+        
+        if (await saveCharacterDB()) {
+            selectedCharId = null;
+            newCharacter();
+            updateCharacterSelect();
+        }
+    }
+}
+
+// Override init
+const originalInit = init;
+init = async function() {
+    createBubbles();
+    renderRaces();
+    renderClasses();
+    renderBackgrounds();
+    renderAbilities();
+    renderSkills();
+    updateProgress();
+    
+    await loadCharacterDB();
+    
+    document.getElementById('charName').addEventListener('input', checkName);
+    window.addEventListener('scroll', () => {
+        const scrollBtn = document.getElementById('scrollTop');
+        if (scrollBtn) scrollBtn.classList.toggle('visible', window.scrollY > 300);
+    });
+}
+
+// Start
+document.addEventListener('DOMContentLoaded', init);
+
+// Start
+document.addEventListener('DOMContentLoaded', init);
+
+async function sendToErwin() {
+    const btn = document.querySelector('[onclick="sendToErwin()"]');
+    btn.textContent = '⏳ Wird gesendet...';
+    btn.disabled = true;
+    
+    console.log('sendToErwin called, sending character:', character);
+    
+    try {
+        const response = await fetch('/api/character', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(character)
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (response.ok) {
+            btn.textContent = '✅ Gesendet! Erwin antwortet bald...';
+            btn.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+            btn.style.color = '#fff';
+            btn.style.borderColor = '#27ae60';
+        } else {
+            btn.textContent = '❌ Fehler - nochmal probieren';
+            btn.disabled = false;
+        }
+    } catch (e) {
+        console.error('Network error:', e);
+        btn.textContent = '❌ Netzwerkfehler';
+        btn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>

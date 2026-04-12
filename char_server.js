@@ -2,7 +2,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 8080;
+const PORT = Number(process.env.PORT || 8080);
+const HOST = process.env.HOST || '127.0.0.1';
 const HTML_FILE = path.join(__dirname, 'DnD_Charakter_Manager.html');
 const DATA_FILE = path.join(__dirname, 'DnD_Charakter_Manager_Data.json');
 const PENDING_FILE = path.join(__dirname, 'pending_character.json');
@@ -127,8 +128,8 @@ const server = http.createServer((req, res) => {
     res.end('Not Found');
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`D&D Charakter Manager läuft auf http://0.0.0.0:${PORT}/DnD_Charakter_Manager.html`);
+server.listen(PORT, HOST, () => {
+    console.log(`D&D Charakter Manager läuft auf http://${HOST}:${PORT}/DnD_Charakter_Manager.html`);
     console.log('Endpoints:');
     console.log('  POST /api/character - Character an Erwin senden');
     console.log('  GET  /api/character - Pending Character abrufen');

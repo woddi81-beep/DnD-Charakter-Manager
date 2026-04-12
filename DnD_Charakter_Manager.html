@@ -1427,6 +1427,78 @@ let pointBuyUsed = false;
 let remainingPoints = 27;
 
 // ==================== INIT ====================
+const DATA_FILE = 'DnD_Charakter_Manager_Data.json';
+const LOCAL_DB_KEY = 'dnd_charakter_manager_db';
+
+function cloneCharacterData(value) {
+    return JSON.parse(JSON.stringify(value));
+}
+
+function normalizeCharacterDB(data) {
+    if (!data || typeof data !== 'object') {
+        return { characters: [], currentPlayer: '' };
+    }
+
+    const characters = Array.isArray(data.characters) ? data.characters : [];
+    return {
+        characters,
+        currentPlayer: typeof data.currentPlayer === 'string' ? data.currentPlayer : ''
+    };
+}
+
+function persistCharacterDBToLocalStorage() {
+    localStorage.setItem(LOCAL_DB_KEY, JSON.stringify(characterDB));
+}
+
+function setSelectionState(selector, activeId) {
+    document.querySelectorAll(selector).forEach(card => card.classList.remove('selected'));
+    if (activeId) {
+        const selected = document.getElementById(activeId);
+        if (selected) selected.classList.add('selected');
+    }
+}
+
+function syncSelectionCards() {
+    setSelectionState('#raceGrid .selection-card', character.race ? `race-${character.race}` : null);
+    setSelectionState('#classGrid .selection-card', character.class ? `class-${character.class}` : null);
+    setSelectionState('#backgroundGrid .selection-card', character.background ? `bg-${character.background}` : null);
+}
+
+function syncProgressButtons() {
+    document.getElementById('btn1').disabled = !character.race;
+    document.getElementById('btn2').disabled = !character.class;
+    document.getElementById('btn3').disabled = !character.background;
+
+    const cls = CLASS_DATA[character.class];
+    document.getElementById('btn4').disabled = !cls || character.skills.length < cls.selectSkills;
+    document.getElementById('btn6').disabled = !(character.name || '').trim();
+}
+
+function syncKeywordSelectionFromStory() {
+    const bg = BACKGROUND_DATA[character.background];
+    if (!bg || !bg.keywords) return;
+
+    document.querySelectorAll('.keyword-card').forEach(card => {
+        const key = card.dataset.key;
+        const sentence = bg.keywords[key];
+        const isSelected = !!sentence && (character.backstory || '').includes(sentence);
+        card.classList.toggle('selected', isSelected);
+    });
+
+    if (character.backstory) {
+        document.getElementById('storyPreview').textContent = character.backstory;
+    }
+}
+
+function hydrateEditorFields() {
+    document.getElementById('charName').value = character.name || '';
+    document.getElementById('playerName').value = character.playerName || '';
+    document.getElementById('alignment').value = character.alignment || '';
+    document.getElementById('gender').value = character.gender || '';
+    document.getElementById('xp').value = character.xp || 0;
+    syncProgressButtons();
+}
+
 function init() {
     createBubbles();
     renderRaces();
@@ -1463,7 +1535,7 @@ function renderRaces() {
     grid.innerHTML = '';
     for (const [key, race] of Object.entries(RACE_DATA)) {
         grid.innerHTML += `
-            <div class="selection-card" onclick="selectRace('${key}')" id="race-${key}">
+            <div class="selection-card ${character.race === key ? 'selected' : ''}" onclick="selectRace('${key}')" id="race-${key}">
                 <span class="badge">✓</span>
                 <h3>${race.emoji} ${race.name}</h3>
                 <p>${race.desc}</p>
@@ -1477,7 +1549,7 @@ function renderClasses() {
     grid.innerHTML = '';
     for (const [key, cls] of Object.entries(CLASS_DATA)) {
         grid.innerHTML += `
-            <div class="selection-card" onclick="selectClass('${key}')" id="class-${key}">
+            <div class="selection-card ${character.class === key ? 'selected' : ''}" onclick="selectClass('${key}')" id="class-${key}">
                 <span class="badge">✓</span>
                 <h3>${cls.emoji} ${cls.name}</h3>
                 <p>${cls.desc}</p>
@@ -1492,7 +1564,7 @@ function renderBackgrounds() {
     grid.innerHTML = '';
     for (const [key, bg] of Object.entries(BACKGROUND_DATA)) {
         grid.innerHTML += `
-            <div class="selection-card" onclick="selectBackground('${key}')" id="bg-${key}">
+            <div class="selection-card ${character.background === key ? 'selected' : ''}" onclick="selectBackground('${key}')" id="bg-${key}">
                 <span class="badge">✓</span>
                 <h3>📜 ${bg.name}</h3>
                 <p>${bg.desc}</p>
@@ -1560,40 +1632,39 @@ function renderKeywords() {
     grid.innerHTML = '';
     for (const [key, text] of Object.entries(bg.keywords)) {
         grid.innerHTML += `
-            <div class="keyword-card" onclick="selectKeyword('${key}', this)">
+            <div class="keyword-card" data-key="${key}" onclick="selectKeyword('${key}', this)">
                 <h4>${key.charAt(0).toUpperCase() + key.slice(1)}</h4>
                 <p>${text}</p>
             </div>
         `;
     }
+
+    syncKeywordSelectionFromStory();
 }
 
 // ==================== HANDLERS ====================
 function selectRace(key) {
     character.race = key;
-    document.querySelectorAll('#raceGrid .selection-card').forEach(c => c.classList.remove('selected'));
-    document.getElementById(`race-${key}`).classList.add('selected');
-    document.getElementById('btn1').disabled = false;
+    syncSelectionCards();
+    syncProgressButtons();
     createParticles(event);
 }
 
 function selectClass(key) {
     character.class = key;
     character.skills = [];
-    document.querySelectorAll('#classGrid .selection-card').forEach(c => c.classList.remove('selected'));
-    document.getElementById(`class-${key}`).classList.add('selected');
-    document.getElementById('btn2').disabled = false;
     renderSkills();
     renderEquipment();
+    syncSelectionCards();
+    syncProgressButtons();
     createParticles(event);
 }
 
 function selectBackground(key) {
     character.background = key;
-    document.querySelectorAll('#backgroundGrid .selection-card').forEach(c => c.classList.remove('selected'));
-    document.getElementById(`bg-${key}`).classList.add('selected');
-    document.getElementById('btn3').disabled = false;
     renderKeywords();
+    syncSelectionCards();
+    syncProgressButtons();
     createParticles(event);
 }
 
@@ -1631,7 +1702,7 @@ function toggleSkill(skill) {
     }
     
     renderSkills();
-    document.getElementById('btn4').disabled = character.skills.length < cls.selectSkills;
+    syncProgressButtons();
 }
 
 function rollAbilities() {
@@ -1649,6 +1720,7 @@ function rollAbilities() {
     pointBuyUsed = false;
     renderAbilities();
     renderSkills();
+    syncProgressButtons();
     
     document.querySelectorAll('.ability-input').forEach(inp => inp.classList.add('rolling'));
     setTimeout(() => document.querySelectorAll('.ability-input').forEach(i => i.classList.remove('rolling')), 500);
@@ -1660,6 +1732,7 @@ function usePointBuy() {
     ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'].forEach(key => character.abilities[key] = 10);
     renderAbilities();
     renderSkills();
+    syncProgressButtons();
 }
 
 function updateAbility(key, value) {
@@ -1680,6 +1753,7 @@ function updateAbility(key, value) {
     }
     renderAbilities();
     renderSkills();
+    syncProgressButtons();
 }
 
 function getPointCost(score) {
@@ -1706,7 +1780,7 @@ function renderEquipment() {
 function checkName() {
     const name = document.getElementById('charName').value.trim();
     character.name = name; // Sync with character object
-    document.getElementById('btn6').disabled = !name;
+    syncProgressButtons();
 }
 
 // ==================== NAVIGATION ====================
@@ -1714,6 +1788,7 @@ function nextStep(current) {
     if (current === 4) renderSkills();
     if (current === 6) {
         character.name = document.getElementById('charName')?.value?.trim() || '';
+        character.playerName = document.getElementById('playerName')?.value?.trim() || '';
         character.alignment = document.getElementById('alignment').value;
         character.gender = document.getElementById('gender').value;
         character.xp = parseInt(document.getElementById('xp').value) || 0;
@@ -2107,7 +2182,7 @@ function generatePDF() {
         doc.setTextColor(isProficient ? gold : silver);
         doc.setFontSize(7);
         doc.setFont('helvetica', 'bold');
-        doc.text(fmtMod(mod), sx + 54, skillY + 2.5);
+        doc.text(mod >= 0 ? `+${mod}` : `${mod}`, sx + 54, skillY + 2.5);
         
         skillY += 7;
     });
@@ -2262,23 +2337,42 @@ function createParticles(e) {
 }
 
 // ===== CHARACTER MANAGEMENT ====================
-const DATA_FILE = 'DnD_Charakter_Manager_Data.json';
 let characterDB = { characters: [], currentPlayer: '' };
 let selectedCharId = null;
 
 async function loadCharacterDB() {
     try {
-        const res = await fetch(DATA_FILE);
+        const res = await fetch(DATA_FILE, { cache: 'no-store' });
         if (res.ok) {
-            characterDB = await res.json();
+            characterDB = normalizeCharacterDB(await res.json());
+            persistCharacterDBToLocalStorage();
         }
     } catch (e) {
-        console.log('No existing character data');
+        const fallback = localStorage.getItem(LOCAL_DB_KEY);
+        if (fallback) {
+            try {
+                characterDB = normalizeCharacterDB(JSON.parse(fallback));
+                console.log('Character DB loaded from localStorage fallback');
+            } catch (parseError) {
+                console.warn('Ignoring invalid localStorage fallback:', parseError);
+                localStorage.removeItem(LOCAL_DB_KEY);
+            }
+        }
+
+        if (!fallback) {
+            console.log('No existing character data');
+        }
     }
-    updateCharacterSelect();
+
+    const currentPlayer = characterDB.currentPlayer || '';
+    document.getElementById('playerFilter').value = currentPlayer;
+    updateCharacterSelect(currentPlayer);
 }
 
 async function saveCharacterDB() {
+    characterDB = normalizeCharacterDB(characterDB);
+    persistCharacterDBToLocalStorage();
+
     try {
         const res = await fetch(DATA_FILE, {
             method: 'PUT',
@@ -2287,8 +2381,8 @@ async function saveCharacterDB() {
         });
         return res.ok;
     } catch (e) {
-        console.error('Save failed:', e);
-        return false;
+        console.warn('Remote save unavailable, localStorage fallback active:', e);
+        return true;
     }
 }
 
@@ -2313,6 +2407,8 @@ function updateCharacterSelect(filterPlayer = '') {
 
 function filterByPlayer() {
     const player = document.getElementById('playerFilter').value;
+    characterDB.currentPlayer = player;
+    persistCharacterDBToLocalStorage();
     updateCharacterSelect(player);
 }
 
@@ -2339,8 +2435,13 @@ function newCharacter() {
     document.getElementById('btnDelete').disabled = true;
     
     // Reset name field
-    const nameInput = document.getElementById('charName');
-    if (nameInput) nameInput.value = '';
+    syncSelectionCards();
+    renderAbilities();
+    renderSkills();
+    renderEquipment();
+    hydrateEditorFields();
+    document.getElementById('storyPreview').textContent = 'Deine Geschichte erscheint hier, wenn du Schlüsselwörter auswählst...';
+    document.querySelectorAll('.keyword-card.selected').forEach(card => card.classList.remove('selected'));
     
     // Reset all steps
     for (let i = 1; i <= 7; i++) {
@@ -2366,14 +2467,21 @@ function loadCharacter() {
     const char = characterDB.characters.find(c => c.id === charId);
     if (char) {
         selectedCharId = charId;
-        character = { ...char };
+        character = cloneCharacterData(char);
         currentStep = 7;
+        renderRaces();
+        renderClasses();
+        renderBackgrounds();
+        renderAbilities();
+        renderSkills();
+        renderEquipment();
         
         for (let i = 1; i <= 7; i++) {
             document.getElementById('step' + i).classList.add('hidden');
         }
         document.getElementById('step7').classList.remove('hidden');
         updateProgress();
+        hydrateEditorFields();
         
         renderSummary();
         
@@ -2387,8 +2495,11 @@ function loadCharacter() {
 }
 
 async function saveCurrentCharacter() {
-    character.playerName = document.getElementById('playerFilter').value;
+    character.playerName = document.getElementById('playerName').value.trim();
     character.name = document.getElementById('charName').value.trim();
+    character.alignment = document.getElementById('alignment').value;
+    character.gender = document.getElementById('gender').value;
+    character.xp = parseInt(document.getElementById('xp').value) || 0;
     
     if (!character.name) {
         alert('Bitte gib dem Charakter einen Namen!');
@@ -2398,17 +2509,23 @@ async function saveCurrentCharacter() {
     if (selectedCharId) {
         const idx = characterDB.characters.findIndex(c => c.id === selectedCharId);
         if (idx >= 0) {
-            characterDB.characters[idx] = { ...character, id: selectedCharId };
+            characterDB.characters[idx] = { ...cloneCharacterData(character), id: selectedCharId };
         }
     } else {
         character.id = generateId();
-        characterDB.characters.push(character);
+        characterDB.characters.push(cloneCharacterData(character));
     }
     
     const result = await saveCharacterDB();
     
     if (result) {
-        updateCharacterSelect(document.getElementById('playerFilter').value);
+        const playerFilter = document.getElementById('playerFilter');
+        if (!playerFilter.value && character.playerName) {
+            playerFilter.value = character.playerName;
+        }
+        characterDB.currentPlayer = playerFilter.value;
+        persistCharacterDBToLocalStorage();
+        updateCharacterSelect(playerFilter.value);
         document.getElementById('charSelect').value = character.id;
         selectedCharId = character.id;
         
@@ -2423,10 +2540,14 @@ async function saveCurrentCharacter() {
 function editCharacter() {
     if (!selectedCharId) return;
     
-    const nameInput = document.getElementById('charName');
-    if (nameInput && character.name) {
-        nameInput.value = character.name;
-    }
+    renderRaces();
+    renderClasses();
+    renderBackgrounds();
+    renderAbilities();
+    renderSkills();
+    renderEquipment();
+    renderKeywords();
+    hydrateEditorFields();
     
     currentStep = 1;
     
@@ -2443,7 +2564,7 @@ function cloneCharacter() {
     
     const original = characterDB.characters.find(c => c.id === selectedCharId);
     if (original) {
-        const clone = { ...original, id: generateId(), name: original.name + ' (Kopie)' };
+        const clone = { ...cloneCharacterData(original), id: generateId(), name: original.name + ' (Kopie)' };
         characterDB.characters.push(clone);
         saveCharacterDB().then(() => {
             updateCharacterSelect(document.getElementById('playerFilter').value);
@@ -2468,7 +2589,6 @@ async function deleteCharacter() {
 }
 
 // Override init
-const originalInit = init;
 init = async function() {
     createBubbles();
     renderRaces();
@@ -2481,14 +2601,23 @@ init = async function() {
     await loadCharacterDB();
     
     document.getElementById('charName').addEventListener('input', checkName);
+    document.getElementById('playerName').addEventListener('input', () => {
+        character.playerName = document.getElementById('playerName').value.trim();
+    });
+    document.getElementById('alignment').addEventListener('change', () => {
+        character.alignment = document.getElementById('alignment').value;
+    });
+    document.getElementById('gender').addEventListener('change', () => {
+        character.gender = document.getElementById('gender').value;
+    });
+    document.getElementById('xp').addEventListener('input', () => {
+        character.xp = parseInt(document.getElementById('xp').value) || 0;
+    });
     window.addEventListener('scroll', () => {
         const scrollBtn = document.getElementById('scrollTop');
         if (scrollBtn) scrollBtn.classList.toggle('visible', window.scrollY > 300);
     });
 }
-
-// Start
-document.addEventListener('DOMContentLoaded', init);
 
 // Start
 document.addEventListener('DOMContentLoaded', init);
@@ -2522,6 +2651,7 @@ async function sendToErwin() {
         console.error('Network error:', e);
         btn.textContent = '❌ Netzwerkfehler';
         btn.disabled = false;
+        alert('Die Erwin-Integration braucht den lokalen Server. Starte `node char_server.js` und öffne danach http://localhost:8080/DnD_Charakter_Manager.html');
     }
 }
 </script>

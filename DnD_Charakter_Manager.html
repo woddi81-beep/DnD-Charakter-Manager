@@ -1469,13 +1469,13 @@ function syncProgressButtons() {
     document.getElementById('btn2').disabled = !character.class;
     document.getElementById('btn3').disabled = !character.background;
 
-    const cls = CLASS_DATA[character.class];
+    const cls = CLASS_DATA[character.class] || { hitDie: 8, name: "Unbekannt", emoji: "❓" };
     document.getElementById('btn4').disabled = !cls || character.skills.length < cls.selectSkills;
     document.getElementById('btn6').disabled = !(character.name || '').trim();
 }
 
 function syncKeywordSelectionFromStory() {
-    const bg = BACKGROUND_DATA[character.background];
+    const bg = BACKGROUND_DATA[character.background] || { name: "Unbekannt" };
     if (!bg || !bg.keywords) return;
 
     document.querySelectorAll('.keyword-card').forEach(card => {
@@ -1598,7 +1598,7 @@ function renderSkills() {
     const list = document.getElementById('skillList');
     list.innerHTML = '';
     
-    const cls = CLASS_DATA[character.class];
+    const cls = CLASS_DATA[character.class] || { hitDie: 8, name: "Unbekannt", emoji: "❓" };
     if (!cls) return;
     
     document.getElementById('skillCount').textContent = cls.selectSkills;
@@ -1626,7 +1626,7 @@ function renderSkills() {
 
 function renderKeywords() {
     const grid = document.getElementById('keywordGrid');
-    const bg = BACKGROUND_DATA[character.background];
+    const bg = BACKGROUND_DATA[character.background] || { name: "Unbekannt" };
     if (!bg || !bg.keywords) return;
     
     grid.innerHTML = '';
@@ -1674,7 +1674,7 @@ function selectKeyword(key, el) {
 }
 
 function updateStory() {
-    const bg = BACKGROUND_DATA[character.background];
+    const bg = BACKGROUND_DATA[character.background] || { name: "Unbekannt" };
     if (!bg || !bg.keywords) return;
     
     let parts = [];
@@ -1691,7 +1691,7 @@ function updateStory() {
 }
 
 function toggleSkill(skill) {
-    const cls = CLASS_DATA[character.class];
+    const cls = CLASS_DATA[character.class] || { hitDie: 8, name: "Unbekannt", emoji: "❓" };
     const isFromClass = cls.skills.includes(skill);
     const idx = character.skills.indexOf(skill);
     
@@ -1765,7 +1765,7 @@ function getPointCost(score) {
 }
 
 function renderEquipment() {
-    const cls = CLASS_DATA[character.class];
+    const cls = CLASS_DATA[character.class] || { hitDie: 8, name: "Unbekannt", emoji: "❓" };
     if (!cls) return;
     
     document.getElementById('equipmentDisplay').innerHTML = `
@@ -1826,9 +1826,9 @@ function updateProgress() {
 
 // ==================== SUMMARY ====================
 function renderSummary() {
-    const race = RACE_DATA[character.race];
-    const cls = CLASS_DATA[character.class];
-    const bg = BACKGROUND_DATA[character.background];
+    const race = RACE_DATA[character.race] || { name: "Unbekannt", emoji: "❓" };;
+    const cls = CLASS_DATA[character.class] || { hitDie: 8, name: "Unbekannt", emoji: "❓" };
+    const bg = BACKGROUND_DATA[character.background] || { name: "Unbekannt" };
     const maxHP = cls.hitDie + getMod(character.abilities.CON);
     
     const grid = document.getElementById('summaryGrid');
@@ -1897,9 +1897,9 @@ function generatePDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     
-    const race = RACE_DATA[character.race];
-    const cls = CLASS_DATA[character.class];
-    const bg = BACKGROUND_DATA[character.background];
+    const race = RACE_DATA[character.race] || { name: "Unbekannt", emoji: "❓" };;
+    const cls = CLASS_DATA[character.class] || { hitDie: 8, name: "Unbekannt", emoji: "❓" };
+    const bg = BACKGROUND_DATA[character.background] || { name: "Unbekannt" };
     const maxHP = cls.hitDie + getMod(character.abilities.CON);
     const prof = 2;
     

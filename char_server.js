@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = Number(process.env.PORT || 8080);
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 const HTML_FILE = path.join(__dirname, 'DnD_Charakter_Manager.html');
 const DATA_FILE = path.join(__dirname, 'DnD_Charakter_Manager_Data.json');
 const PENDING_FILE = path.join(__dirname, 'pending_character.json');

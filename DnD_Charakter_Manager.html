@@ -593,6 +593,57 @@
             line-height: 1.9;
             color: rgba(255,255,255,0.9);
         }
+
+        .player-onboarding {
+            margin-bottom: 28px;
+            padding: 24px;
+            border-radius: 22px;
+            border: 1px solid rgba(255,215,0,0.2);
+            background: linear-gradient(135deg, rgba(255,215,0,0.08), rgba(155,89,182,0.1));
+        }
+
+        .player-onboarding h3 {
+            font-family: 'Cinzel', serif;
+            color: var(--gold);
+            margin-bottom: 10px;
+        }
+
+        .player-onboarding p {
+            color: rgba(255,255,255,0.72);
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+
+        .player-onboarding-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .player-onboarding-row input {
+            flex: 1;
+            min-width: 220px;
+            padding: 14px 18px;
+            background: rgba(0,0,0,0.28);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 14px;
+            color: #fff;
+            font-size: 1em;
+        }
+
+        .player-onboarding-status {
+            margin-top: 12px;
+            color: rgba(255,255,255,0.84);
+            font-size: 0.95em;
+        }
+
+        .field-hint {
+            margin-top: 8px;
+            color: rgba(255,255,255,0.5);
+            font-size: 0.88em;
+            line-height: 1.5;
+        }
         
         /* Summary */
         .summary-grid {
@@ -1274,6 +1325,15 @@
                 <div class="icon">🧬</div>
                 Wähle dein Volk
             </div>
+            <div class="player-onboarding">
+                <h3>Spieler zuerst festlegen</h3>
+                <p>Lege zuerst fest, für wen du gerade Charaktere baust. Neue Helden werden dann automatisch diesem Spieler zugeordnet.</p>
+                <div class="player-onboarding-row">
+                    <input type="text" id="startPlayerName" placeholder="z.B. Sarah" oninput="syncStartPlayerInput()">
+                    <button class="btn btn-primary" type="button" onclick="setCurrentPlayer()">Spieler übernehmen</button>
+                </div>
+                <div class="player-onboarding-status" id="playerSetupStatus">Noch kein aktiver Spieler gewählt.</div>
+            </div>
             <p style="color:rgba(255,255,255,0.6); margin-bottom:25px;">
                 Dein Volk bestimmt deine Grundfähigkeiten, deine Herkunft und dein Aussehen.
             </p>
@@ -1372,10 +1432,12 @@
                 <div class="input-group">
                     <label>Charaktername *</label>
                     <input type="text" id="charName" placeholder="z.B. Thoradin Eisenhelm" required>
+                    <div class="field-hint" id="charNameHint">Für die Zusammenfassung brauchst du einen Charakternamen.</div>
                 </div>
                 <div class="input-group">
                     <label>Spielername</label>
                     <input type="text" id="playerName" placeholder="Dein Name">
+                    <div class="field-hint">Wird automatisch aus dem aktiven Spieler übernommen, kann aber angepasst werden.</div>
                 </div>
             </div>
             
@@ -1557,6 +1619,14 @@ function persistCharacterDBToLocalStorage() {
     localStorage.setItem(LOCAL_DB_KEY, JSON.stringify(characterDB));
 }
 
+function getCurrentPlayerName() {
+    const playerFilter = document.getElementById('playerFilter');
+    if (playerFilter && playerFilter.value.trim()) {
+        return playerFilter.value.trim();
+    }
+    return (characterDB.currentPlayer || '').trim();
+}
+
 function isChatGPTEnabled() {
     return localStorage.getItem(CHATGPT_ENABLED_KEY) !== 'false';
 }
@@ -1595,13 +1665,21 @@ function syncSelectionCards() {
 }
 
 function syncProgressButtons() {
-    document.getElementById('btn1').disabled = !character.race;
+    const hasCurrentPlayer = !!getCurrentPlayerName();
+    document.getElementById('btn1').disabled = !hasCurrentPlayer || !character.race;
     document.getElementById('btn2').disabled = !character.class;
     document.getElementById('btn3').disabled = !character.background;
 
     const cls = CLASS_DATA[character.class] || { hitDie: 8, name: "Unbekannt", emoji: "❓" };
     document.getElementById('btn4').disabled = !cls || character.skills.length < cls.selectSkills;
     document.getElementById('btn6').disabled = !(character.name || '').trim();
+
+    const nameHint = document.getElementById('charNameHint');
+    if (nameHint) {
+        nameHint.textContent = (character.name || '').trim()
+            ? 'Name gesetzt. Du kannst weiter zur Zusammenfassung.'
+            : 'Der Weiter-Knopf bleibt gesperrt, bis ein Charaktername eingetragen ist.';
+    }
 }
 
 function syncKeywordSelectionFromStory() {
@@ -1622,10 +1700,61 @@ function syncKeywordSelectionFromStory() {
 
 function hydrateEditorFields() {
     document.getElementById('charName').value = character.name || '';
-    document.getElementById('playerName').value = character.playerName || '';
+    document.getElementById('playerName').value = character.playerName || getCurrentPlayerName() || '';
     document.getElementById('alignment').value = character.alignment || '';
     document.getElementById('gender').value = character.gender || '';
     document.getElementById('xp').value = character.xp || 0;
+    syncPlayerSetupUI();
+    syncProgressButtons();
+}
+
+function syncStartPlayerInput() {
+    const startPlayerInput = document.getElementById('startPlayerName');
+    const playerFilter = document.getElementById('playerFilter');
+    if (!startPlayerInput || !playerFilter) return;
+    playerFilter.value = startPlayerInput.value;
+}
+
+function syncPlayerSetupUI() {
+    const currentPlayer = getCurrentPlayerName();
+    const startPlayerInput = document.getElementById('startPlayerName');
+    const playerStatus = document.getElementById('playerSetupStatus');
+    const playerNameInput = document.getElementById('playerName');
+
+    if (startPlayerInput && currentPlayer && startPlayerInput.value.trim() !== currentPlayer) {
+        startPlayerInput.value = currentPlayer;
+    }
+
+    if (playerStatus) {
+        playerStatus.textContent = currentPlayer
+            ? `Aktiver Spieler: ${currentPlayer}`
+            : 'Noch kein aktiver Spieler gewählt.';
+    }
+
+    if (playerNameInput && !playerNameInput.value.trim() && currentPlayer) {
+        playerNameInput.value = currentPlayer;
+        character.playerName = currentPlayer;
+    }
+}
+
+function setCurrentPlayer() {
+    const startPlayerInput = document.getElementById('startPlayerName');
+    const playerFilter = document.getElementById('playerFilter');
+    const playerName = (startPlayerInput?.value || playerFilter?.value || '').trim();
+
+    if (!playerName) {
+        alert('Bitte zuerst einen Spielernamen eintragen.');
+        return;
+    }
+
+    if (playerFilter) playerFilter.value = playerName;
+    if (startPlayerInput) startPlayerInput.value = playerName;
+
+    characterDB.currentPlayer = playerName;
+    character.playerName = playerName;
+    persistCharacterDBToLocalStorage();
+    updateCharacterSelect(playerName);
+    syncPlayerSetupUI();
     syncProgressButtons();
 }
 
@@ -2637,6 +2766,8 @@ function filterByPlayer() {
     characterDB.currentPlayer = player;
     persistCharacterDBToLocalStorage();
     updateCharacterSelect(player);
+    syncPlayerSetupUI();
+    syncProgressButtons();
 }
 
 function generateId() {
@@ -2648,7 +2779,7 @@ function newCharacter() {
     character = {
         race: null, class: null, background: null,
         abilities: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
-        skills: [], backstory: "", name: "", playerName: "", alignment: "", gender: "", xp: 0
+        skills: [], backstory: "", name: "", playerName: getCurrentPlayerName(), alignment: "", gender: "", xp: 0
     };
     currentStep = 1;
     pointBuyUsed = false;
@@ -2826,6 +2957,7 @@ init = async function() {
     updateProgress();
     
     await loadCharacterDB();
+    syncPlayerSetupUI();
     
     document.getElementById('charName').addEventListener('input', checkName);
     document.getElementById('playerName').addEventListener('input', () => {

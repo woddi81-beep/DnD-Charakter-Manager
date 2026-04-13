@@ -665,6 +665,29 @@
             color: rgba(255,255,255,0.92);
         }
 
+        .ai-toggle {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 20px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.88);
+        }
+
+        .ai-toggle input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--gold);
+            cursor: pointer;
+        }
+
+        .ai-toggle label {
+            cursor: pointer;
+        }
+
         .ai-result-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1421,6 +1444,10 @@
                 Charakterbogen Vorschau
             </h3>
             <div class="pdf-preview" id="pdfPreview"></div>
+            <div class="ai-toggle">
+                <input type="checkbox" id="chatGptEnabled" checked onchange="toggleChatGPTIntegration()">
+                <label for="chatGptEnabled">ChatGPT-Integration aktiv</label>
+            </div>
             <div class="ai-result hidden" id="aiResult">
                 <h3>ChatGPT-Empfehlung</h3>
                 <div class="meta" id="aiResultMeta"></div>
@@ -1508,6 +1535,7 @@ let remainingPoints = 27;
 // ==================== INIT ====================
 const DATA_FILE = 'DnD_Charakter_Manager_Data.json';
 const LOCAL_DB_KEY = 'dnd_charakter_manager_db';
+const CHATGPT_ENABLED_KEY = 'dnd_charakter_manager_chatgpt_enabled';
 
 function cloneCharacterData(value) {
     return JSON.parse(JSON.stringify(value));
@@ -1527,6 +1555,29 @@ function normalizeCharacterDB(data) {
 
 function persistCharacterDBToLocalStorage() {
     localStorage.setItem(LOCAL_DB_KEY, JSON.stringify(characterDB));
+}
+
+function isChatGPTEnabled() {
+    return localStorage.getItem(CHATGPT_ENABLED_KEY) !== 'false';
+}
+
+function updateChatGPTUI() {
+    const checkbox = document.getElementById('chatGptEnabled');
+    const button = document.getElementById('btnAiImprove');
+    if (!checkbox || !button) return;
+
+    const enabled = isChatGPTEnabled();
+    checkbox.checked = enabled;
+    button.disabled = !enabled;
+    button.textContent = enabled ? '✨ ChatGPT: Charakter optimieren' : '🚫 ChatGPT deaktiviert';
+    button.style.opacity = enabled ? '1' : '0.55';
+    button.style.cursor = enabled ? 'pointer' : 'not-allowed';
+}
+
+function toggleChatGPTIntegration() {
+    const checkbox = document.getElementById('chatGptEnabled');
+    localStorage.setItem(CHATGPT_ENABLED_KEY, checkbox.checked ? 'true' : 'false');
+    updateChatGPTUI();
 }
 
 function setSelectionState(selector, activeId) {
@@ -2789,6 +2840,7 @@ init = async function() {
     document.getElementById('xp').addEventListener('input', () => {
         character.xp = parseInt(document.getElementById('xp').value) || 0;
     });
+    updateChatGPTUI();
     window.addEventListener('scroll', () => {
         const scrollBtn = document.getElementById('scrollTop');
         if (scrollBtn) scrollBtn.classList.toggle('visible', window.scrollY > 300);
@@ -2799,6 +2851,11 @@ init = async function() {
 document.addEventListener('DOMContentLoaded', init);
 
 async function sendToChatGPT() {
+    if (!isChatGPTEnabled()) {
+        updateChatGPTUI();
+        return;
+    }
+
     const btn = document.getElementById('btnAiImprove');
     const resultBox = document.getElementById('aiResult');
     const resultMeta = document.getElementById('aiResultMeta');

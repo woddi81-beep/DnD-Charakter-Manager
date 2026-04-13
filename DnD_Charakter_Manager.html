@@ -1627,6 +1627,23 @@ function getCurrentPlayerName() {
     return (characterDB.currentPlayer || '').trim();
 }
 
+function hasCharacterProgress() {
+    return Boolean(
+        selectedCharId ||
+        character.race ||
+        character.class ||
+        character.background ||
+        (character.name || '').trim() ||
+        (character.backstory || '').trim()
+    );
+}
+
+function syncSaveButtonState() {
+    const saveButton = document.getElementById('btnSave');
+    if (!saveButton) return;
+    saveButton.disabled = !(getCurrentPlayerName() && hasCharacterProgress());
+}
+
 function isChatGPTEnabled() {
     return localStorage.getItem(CHATGPT_ENABLED_KEY) !== 'false';
 }
@@ -1680,6 +1697,8 @@ function syncProgressButtons() {
             ? 'Name gesetzt. So wird der Charakter später sauber gespeichert.'
             : 'Du kannst auch ohne Namen weiter. Spätestens beim Speichern solltest du einen Namen vergeben.';
     }
+
+    syncSaveButtonState();
 }
 
 function syncKeywordSelectionFromStory() {
@@ -1756,6 +1775,7 @@ function setCurrentPlayer() {
     updateCharacterSelect(playerName);
     syncPlayerSetupUI();
     syncProgressButtons();
+    syncSaveButtonState();
 }
 
 function init() {
@@ -2556,7 +2576,6 @@ function newCharacter() {
     
     // Reset UI
     document.getElementById('charSelect').value = '';
-    document.getElementById('btnSave').disabled = false;
     document.getElementById('btnEdit').disabled = true;
     document.getElementById('btnClone').disabled = true;
     document.getElementById('btnDelete').disabled = true;
@@ -2576,6 +2595,7 @@ function newCharacter() {
     }
     document.getElementById('step1').classList.remove('hidden');
     updateProgress();
+    syncSaveButtonState();
     
     window.scrollTo(0, 0);
 }
@@ -2588,6 +2608,7 @@ function loadCharacter() {
         document.getElementById('btnEdit').disabled = true;
         document.getElementById('btnClone').disabled = true;
         document.getElementById('btnDelete').disabled = true;
+        syncSaveButtonState();
         return;
     }
     
@@ -2615,7 +2636,7 @@ function loadCharacter() {
         document.getElementById('btnEdit').disabled = false;
         document.getElementById('btnClone').disabled = false;
         document.getElementById('btnDelete').disabled = false;
-        document.getElementById('btnSave').disabled = false;
+        syncSaveButtonState();
         
         window.scrollTo(0, 0);
     }
@@ -2727,6 +2748,7 @@ init = async function() {
     
     await loadCharacterDB();
     syncPlayerSetupUI();
+    syncSaveButtonState();
     
     document.getElementById('charName').addEventListener('input', checkName);
     document.getElementById('playerName').addEventListener('input', () => {

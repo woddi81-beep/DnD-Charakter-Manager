@@ -639,6 +639,80 @@
             max-height: 500px;
             overflow-y: auto;
         }
+
+        .ai-result {
+            margin-top: 25px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(155,89,182,0.35);
+            border-radius: 20px;
+            padding: 24px;
+            line-height: 1.7;
+        }
+
+        .ai-result h3 {
+            color: var(--gold);
+            font-family: 'Cinzel', serif;
+            margin-bottom: 10px;
+        }
+
+        .ai-result .meta {
+            color: rgba(255,255,255,0.55);
+            font-size: 0.9em;
+            margin-bottom: 12px;
+        }
+
+        .ai-result .content {
+            color: rgba(255,255,255,0.92);
+        }
+
+        .ai-result-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .ai-section {
+            background: rgba(0,0,0,0.18);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 16px 18px;
+        }
+
+        .ai-section.full {
+            grid-column: 1 / -1;
+        }
+
+        .ai-section h4 {
+            margin-bottom: 10px;
+            color: var(--gold);
+            font-family: 'Cinzel', serif;
+            font-size: 1em;
+        }
+
+        .ai-section p {
+            margin: 0;
+            line-height: 1.7;
+        }
+
+        .ai-section ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+
+        .ai-section li + li {
+            margin-top: 8px;
+        }
+
+        .ai-raw {
+            white-space: pre-wrap;
+            line-height: 1.7;
+        }
+
+        @media (max-width: 700px) {
+            .ai-result-grid {
+                grid-template-columns: 1fr;
+            }
+        }
         
         .pdf-preview h1 {
             background: linear-gradient(135deg, #1a1a2e, #333);
@@ -1347,11 +1421,16 @@
                 Charakterbogen Vorschau
             </h3>
             <div class="pdf-preview" id="pdfPreview"></div>
+            <div class="ai-result hidden" id="aiResult">
+                <h3>ChatGPT-Empfehlung</h3>
+                <div class="meta" id="aiResultMeta"></div>
+                <div class="content" id="aiResultContent"></div>
+            </div>
             
             <div class="nav-buttons">
                 <button class="btn btn-secondary" onclick="prevStep(7)">← Zurück</button>
-                <button class="btn btn-primary" onclick="sendToErwin()" style="font-size:1.1em; padding:18px 35px; background: linear-gradient(135deg, #9b59b6, #8e44ad);">
-                    ✨ Erwin: Charakter perfekt machen!
+                <button class="btn btn-primary" id="btnAiImprove" onclick="sendToChatGPT()" style="font-size:1.1em; padding:18px 35px; background: linear-gradient(135deg, #9b59b6, #8e44ad);">
+                    ✨ ChatGPT: Charakter optimieren
                 </button>
                 <button class="btn btn-primary"  onclick="console.log('jspdf:', typeof window.jspdf, window.jspdf); if(!window.jspdf){alert('PDF wird geladen...');return false;} generatePDF();" style="font-size:1.1em; padding:18px 35px;">
                     📄 PDF Eigen
@@ -2322,6 +2401,103 @@ function generatePDF() {
 // ==================== HELPERS ====================
 function getMod(score) { return Math.floor((score - 10) / 2); }
 function fmtMod(score) { const m = getMod(score); return m >= 0 ? `+${m}` : `${m}`; }
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+function parseAiAnalysisSections(text) {
+    const headingMap = [
+        { label: 'Gesamturteil', key: 'gesamturteil' },
+        { label: 'Staerken', key: 'staerken' },
+        { label: 'Stärken', key: 'staerken' },
+        { label: 'Schwaechen oder Risiken', key: 'schwaechen' },
+        { label: 'Schwächen oder Risiken', key: 'schwaechen' },
+        { label: 'Optimierungen', key: 'optimierungen' },
+        { label: 'Spieltipps', key: 'spieltipps' },
+        { label: 'Verbesserte Kurzgeschichte', key: 'kurzgeschichte' }
+    ];
+
+    const sections = {};
+    let currentKey = 'gesamturteil';
+    sections[currentKey] = [];
+
+    for (const rawLine of String(text || '').split('\n')) {
+        const line = rawLine.trim();
+        if (!line) continue;
+
+        const matchedHeading = headingMap.find(entry => {
+            const normalizedLabel = entry.label.toLowerCase();
+            const normalizedLine = line.toLowerCase();
+            return normalizedLine === `${normalizedLabel}:` || normalizedLine.startsWith(`${normalizedLabel}:`);
+        });
+
+        if (matchedHeading) {
+            currentKey = matchedHeading.key;
+            sections[currentKey] = sections[currentKey] || [];
+            const suffix = line.slice(line.indexOf(':') + 1).trim();
+            if (suffix) sections[currentKey].push(suffix);
+            continue;
+        }
+
+        sections[currentKey] = sections[currentKey] || [];
+        sections[currentKey].push(line.replace(/^[-•]\s*/, ''));
+    }
+
+    return sections;
+}
+
+function renderAiSection(title, lines, options = {}) {
+    if (!Array.isArray(lines) || !lines.length) return '';
+
+    const className = options.full ? 'ai-section full' : 'ai-section';
+    if (options.list) {
+        return `
+            <section class="${className}">
+                <h4>${escapeHtml(title)}</h4>
+                <ul>${lines.map(line => `<li>${escapeHtml(line)}</li>`).join('')}</ul>
+            </section>
+        `;
+    }
+
+    return `
+        <section class="${className}">
+            <h4>${escapeHtml(title)}</h4>
+            <p>${escapeHtml(lines.join(' '))}</p>
+        </section>
+    `;
+}
+
+function renderAiAnalysis(text) {
+    const sections = parseAiAnalysisSections(text);
+    const knownContent = [
+        sections.gesamturteil,
+        sections.staerken,
+        sections.schwaechen,
+        sections.optimierungen,
+        sections.spieltipps,
+        sections.kurzgeschichte
+    ].some(lines => Array.isArray(lines) && lines.length);
+
+    if (!knownContent) {
+        return `<div class="ai-raw">${escapeHtml(text || 'Keine Antwort erhalten.')}</div>`;
+    }
+
+    return `
+        <div class="ai-result-grid">
+            ${renderAiSection('Gesamturteil', sections.gesamturteil, { full: true })}
+            ${renderAiSection('Stärken', sections.staerken, { list: true })}
+            ${renderAiSection('Schwächen oder Risiken', sections.schwaechen, { list: true })}
+            ${renderAiSection('Optimierungen', sections.optimierungen, { list: true, full: true })}
+            ${renderAiSection('Spieltipps', sections.spieltipps, { list: true })}
+            ${renderAiSection('Verbesserte Kurzgeschichte', sections.kurzgeschichte, { full: true })}
+        </div>
+    `;
+}
 
 function createParticles(e) {
     if (!e) return;
@@ -2622,36 +2798,43 @@ init = async function() {
 // Start
 document.addEventListener('DOMContentLoaded', init);
 
-async function sendToErwin() {
-    const btn = document.querySelector('[onclick="sendToErwin()"]');
-    btn.textContent = '⏳ Wird gesendet...';
+async function sendToChatGPT() {
+    const btn = document.getElementById('btnAiImprove');
+    const resultBox = document.getElementById('aiResult');
+    const resultMeta = document.getElementById('aiResultMeta');
+    const resultContent = document.getElementById('aiResultContent');
+
+    btn.textContent = '⏳ ChatGPT denkt nach...';
     btn.disabled = true;
-    
-    console.log('sendToErwin called, sending character:', character);
-    
+    resultBox.classList.add('hidden');
+    resultMeta.textContent = '';
+    resultContent.textContent = '';
+
     try {
         const response = await fetch('/api/character', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(character)
         });
-        
-        console.log('Response status:', response.status);
-        
+
+        const payload = await response.json().catch(() => ({}));
         if (response.ok) {
-            btn.textContent = '✅ Gesendet! Erwin antwortet bald...';
+            resultMeta.textContent = payload.model ? `Antwort von ${payload.model}` : 'Antwort von ChatGPT';
+            resultContent.innerHTML = renderAiAnalysis(payload.analysis || 'Keine Antwort erhalten.');
+            resultBox.classList.remove('hidden');
+            btn.textContent = '✅ Analyse geladen';
             btn.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
             btn.style.color = '#fff';
             btn.style.borderColor = '#27ae60';
         } else {
             btn.textContent = '❌ Fehler - nochmal probieren';
             btn.disabled = false;
+            alert(payload.error || 'Die ChatGPT-Anfrage ist fehlgeschlagen.');
         }
     } catch (e) {
-        console.error('Network error:', e);
         btn.textContent = '❌ Netzwerkfehler';
         btn.disabled = false;
-        alert('Die Erwin-Integration braucht den lokalen Server. Starte `node char_server.js` und öffne danach http://localhost:8080/DnD_Charakter_Manager.html');
+        alert('Die ChatGPT-Integration braucht den lokalen Server. Starte `node char_server.js` und setze `OPENAI_API_KEY`, dann öffne http://localhost:8080/DnD_Charakter_Manager.html');
     }
 }
 </script>

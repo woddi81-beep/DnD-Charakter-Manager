@@ -9,7 +9,7 @@ Eine Web-App zur einfachen Erstellung von D&D 5e Charakteren.
 - **PDF Export** - Detaillierter Charakterbogen zum Download
 - **Charakterverwaltung** - Speichern, Laden, Klonen, Löschen
 - **Mehrspieler-Support** - Nach Spielern filtern
-- ** Erwin-Integration** - Charakter zur KI-Bewertung senden
+- **ChatGPT-Integration** - Charakter direkt von OpenAI analysieren lassen
 - **Responsive Design** - Funktioniert auf Desktop und Mobile
 - **Mehrsprachig** - Komplett auf Deutsch
 
@@ -26,9 +26,14 @@ Einfach `DnD_Charakter_Manager.html` im Browser öffnen.
 
 ### Option 2: Mit Server
 ```bash
-node char_server.js
+OPENAI_API_KEY=dein_api_key node char_server.js
 ```
 Dann öffnen: http://localhost:8080/DnD_Charakter_Manager.html
+
+Optional:
+
+- `OPENAI_MODEL=gpt-4.1` überschreibt das Standardmodell
+- Ohne `OPENAI_API_KEY` funktioniert die ChatGPT-Analyse nicht
 
 ## Klassen
 

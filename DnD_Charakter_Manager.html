@@ -1432,7 +1432,7 @@
                 <div class="input-group">
                     <label>Charaktername *</label>
                     <input type="text" id="charName" placeholder="z.B. Thoradin Eisenhelm" required>
-                    <div class="field-hint" id="charNameHint">Für die Zusammenfassung brauchst du einen Charakternamen.</div>
+                    <div class="field-hint" id="charNameHint">Ein Name ist optional für die Vorschau, aber sinnvoll fürs spätere Speichern.</div>
                 </div>
                 <div class="input-group">
                     <label>Spielername</label>
@@ -1521,7 +1521,7 @@
                 <button class="btn btn-primary" id="btnAiImprove" onclick="sendToChatGPT()" style="font-size:1.1em; padding:18px 35px; background: linear-gradient(135deg, #9b59b6, #8e44ad);">
                     ✨ ChatGPT: Charakter optimieren
                 </button>
-                <button class="btn btn-primary"  onclick="console.log('jspdf:', typeof window.jspdf, window.jspdf); if(!window.jspdf){alert('PDF wird geladen...');return false;} generatePDF();" style="font-size:1.1em; padding:18px 35px;">
+                <button class="btn btn-primary" onclick="generatePDF()" style="font-size:1.1em; padding:18px 35px;">
                     📄 PDF Eigen
                 </button>
             </div>
@@ -1672,13 +1672,13 @@ function syncProgressButtons() {
 
     const cls = CLASS_DATA[character.class] || { hitDie: 8, name: "Unbekannt", emoji: "❓" };
     document.getElementById('btn4').disabled = !cls || character.skills.length < cls.selectSkills;
-    document.getElementById('btn6').disabled = !(character.name || '').trim();
+    document.getElementById('btn6').disabled = false;
 
     const nameHint = document.getElementById('charNameHint');
     if (nameHint) {
         nameHint.textContent = (character.name || '').trim()
-            ? 'Name gesetzt. Du kannst weiter zur Zusammenfassung.'
-            : 'Der Weiter-Knopf bleibt gesperrt, bis ein Charaktername eingetragen ist.';
+            ? 'Name gesetzt. So wird der Charakter später sauber gespeichert.'
+            : 'Du kannst auch ohne Namen weiter. Spätestens beim Speichern solltest du einen Namen vergeben.';
     }
 }
 
@@ -2103,285 +2103,60 @@ function renderSummary() {
     `;
     
     document.getElementById('pdfPreview').innerHTML = `
-        <h1 style="background:linear-gradient(135deg,#ffd700,#b8860b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:2em;margin-bottom:10px;">⚔️ ${character.name} ⚔️</h1>
-        <p style="color:#666;font-size:1.1em;margin-bottom:15px;">${race?.name || ''} ${cls?.name || ''} der Stufe 1 ${character.gender ? '• ' + character.gender : ''}</p>
-        <p style="color:#888;"><strong>Hintergrund:</strong> ${bg?.name || ''} • <strong>Weltanschauung:</strong> ${character.alignment || 'Unbestimmt'}</p>
-        <hr style="margin:20px 0;border-color:#ffd700;">
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px;text-align:center;">
-            <div style="background:rgba(255,215,0,0.1);padding:15px;border-radius:10px;">
-                <div style="color:#888;font-size:0.8em;">STÄRKE</div>
-                <div style="font-size:2em;color:#ffd700;font-weight:bold;">${character.abilities.STR}</div>
-                <div style="color:#b8860b;">${fmtMod(character.abilities.STR)}</div>
+        <h1 style="color:#1b1b1b;font-size:2em;margin-bottom:10px;">${character.name || 'Unbenannter Charakter'}</h1>
+        <p style="color:#555;font-size:1.05em;margin-bottom:12px;">${race?.name || ''} | ${cls?.name || ''} | Hintergrund: ${bg?.name || ''}</p>
+        <p style="color:#777;margin-bottom:18px;"><strong>Weltanschauung:</strong> ${character.alignment || 'Offen'} | <strong>Spieler:</strong> ${character.playerName || getCurrentPlayerName() || 'Offen'}</p>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px;">
+            <div style="border:1px solid #d9d9d9;padding:12px;border-radius:10px;"><strong>RK</strong><br>10</div>
+            <div style="border:1px solid #d9d9d9;padding:12px;border-radius:10px;"><strong>INI</strong><br>${fmtMod(character.abilities.DEX)}</div>
+            <div style="border:1px solid #d9d9d9;padding:12px;border-radius:10px;"><strong>TP Max</strong><br>${maxHP}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px;">
+            <div>
+                <h3 style="font-size:1em;color:#222;margin-bottom:10px;">Attribute</h3>
+                ${Object.entries(ABILITY_NAMES).map(([key, label]) => `<div style="display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:6px 0;"><span>${label}</span><strong>${character.abilities[key]} (${fmtMod(character.abilities[key])})</strong></div>`).join('')}
             </div>
-            <div style="background:rgba(255,215,0,0.1);padding:15px;border-radius:10px;">
-                <div style="color:#888;font-size:0.8em;">GESCHICK</div>
-                <div style="font-size:2em;color:#ffd700;font-weight:bold;">${character.abilities.DEX}</div>
-                <div style="color:#b8860b;">${fmtMod(character.abilities.DEX)}</div>
-            </div>
-            <div style="background:rgba(255,215,0,0.1);padding:15px;border-radius:10px;">
-                <div style="color:#888;font-size:0.8em;">KONSTITUTION</div>
-                <div style="font-size:2em;color:#ffd700;font-weight:bold;">${character.abilities.CON}</div>
-                <div style="color:#b8860b;">${fmtMod(character.abilities.CON)}</div>
-            </div>
-            <div style="background:rgba(255,215,0,0.1);padding:15px;border-radius:10px;">
-                <div style="color:#888;font-size:0.8em;">INTELLIGENZ</div>
-                <div style="font-size:2em;color:#ffd700;font-weight:bold;">${character.abilities.INT}</div>
-                <div style="color:#b8860b;">${fmtMod(character.abilities.INT)}</div>
-            </div>
-            <div style="background:rgba(255,215,0,0.1);padding:15px;border-radius:10px;">
-                <div style="color:#888;font-size:0.8em;">WEISHEIT</div>
-                <div style="font-size:2em;color:#ffd700;font-weight:bold;">${character.abilities.WIS}</div>
-                <div style="color:#b8860b;">${fmtMod(character.abilities.WIS)}</div>
-            </div>
-            <div style="background:rgba(255,215,0,0.1);padding:15px;border-radius:10px;">
-                <div style="color:#888;font-size:0.8em;">CHARISMA</div>
-                <div style="font-size:2em;color:#ffd700;font-weight:bold;">${character.abilities.CHA}</div>
-                <div style="color:#b8860b;">${fmtMod(character.abilities.CHA)}</div>
+            <div>
+                <h3 style="font-size:1em;color:#222;margin-bottom:10px;">Fertigkeiten</h3>
+                <p style="color:#555;line-height:1.6;">${character.skills.length ? character.skills.join(', ') : 'Noch keine Fertigkeiten ausgewaehlt.'}</p>
             </div>
         </div>
-        <p style="color:#c41e3a;"><strong>Trefferpunkte:</strong> ${maxHP} | <strong>Fertigkeiten:</strong> ${character.skills.join(', ')}</p>
-        <hr style="margin:20px 0;border-color:#ffd700;">
-        <p style="color:#333;font-style:italic;line-height:1.6;">${character.backstory || 'Keine Geschichte.'}</p>
+        <h3 style="font-size:1em;color:#222;margin:20px 0 10px;">Geschichte / Notizen</h3>
+        <p style="color:#444;font-style:italic;line-height:1.6;">${character.backstory || 'Keine Geschichte eingetragen.'}</p>
     `;
 }
 
 // ==================== PDF ====================
 function generatePDF() {
-    console.log('jspdf type:', typeof window.jspdf); console.log('generatePDF called');
     if (!window.jspdf) {
-        console.error('jsPDF not loaded');
         alert('PDF-Bibliothek noch nicht geladen, bitte warten');
         return;
     }
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    
     const race = RACE_DATA[character.race] || { name: "Unbekannt", emoji: "❓" };;
     const cls = CLASS_DATA[character.class] || { hitDie: 8, name: "Unbekannt", emoji: "❓" };
     const bg = BACKGROUND_DATA[character.background] || { name: "Unbekannt" };
-    const maxHP = cls.hitDie + getMod(character.abilities.CON);
+    const characterName = (character.name || 'Unbenannter Charakter').trim();
+    const playerName = (character.playerName || getCurrentPlayerName() || 'Offen').trim();
+    const maxHP = Math.max(1, cls.hitDie + getMod(character.abilities.CON));
     const prof = 2;
-    
-    // Epic Fantasy Color Palette
-    const darkBg = [15, 15, 35];
-    const gold = [212, 175, 55];
-    const goldDark = [180, 140, 50];
-    const purple = [120, 60, 160];
-    const crimson = [180, 40, 50];
-    const silver = [200, 200, 210];
-    const darkText = [30, 30, 50];
-    const lightText = [245, 240, 230];
-    const grayText = [100, 95, 90];
-    
-    // Class color accents
-    const classColors = {
-        barbar: [200, 60, 40],
-        krieger: [180, 140, 60],
-        paladin: [220, 200, 80],
-        kleriker: [240, 220, 160],
-        druide: [80, 160, 80],
-        waldlaeufer: [100, 180, 100],
-        schurke: [100, 80, 140],
-        barde: [160, 80, 180],
-        zauberer: [80, 100, 200],
-        hexmeister: [100, 40, 140],
-        monk: [180, 140, 100],
+    const accentByClass = {
+        barbar: [150, 53, 41],
+        barde: [117, 61, 134],
+        druide: [62, 112, 67],
+        krieger: [88, 94, 109],
+        monk: [136, 87, 52],
+        paladin: [133, 103, 31],
+        schurke: [79, 66, 104],
+        kleriker: [78, 97, 129],
+        zauberer: [48, 83, 140],
+        hexmeister: [90, 56, 118],
+        waldlaeufer: [76, 108, 62]
     };
-    const accentColor = classColors[character.class] || gold;
-    
-    // ===== BACKGROUND =====
-    // Dark gradient background
-    doc.setFillColor(...darkBg);
-    doc.rect(0, 0, 210, 297, 'F');
-    
-    // Subtle texture pattern (diagonal lines)
-    doc.setDrawColor(40, 40, 60);
-    doc.setLineWidth(0.2);
-    for (let i = -300; i < 500; i += 8) {
-        doc.line(i, 0, i + 300, 297);
-    }
-    
-    // ===== DECORATIVE BORDER =====
-    // Outer border
-    doc.setDrawColor(...gold);
-    doc.setLineWidth(1.5);
-    doc.rect(8, 8, 194, 281);
-    
-    // Inner border
-    doc.setDrawColor(...goldDark);
-    doc.setLineWidth(0.5);
-    doc.rect(11, 11, 188, 275);
-    
-    // Corner ornaments
-    const corners = [[8, 8], [202, 8], [8, 289], [202, 289]];
-    corners.forEach(([cx, cy], i) => {
-        const sx = i % 2 === 0 ? 1 : -1;
-        const sy = i < 2 ? 1 : -1;
-        doc.setFillColor(...gold);
-        doc.circle(cx, cy, 3, 'F');
-        doc.setDrawColor(...gold);
-        doc.setLineWidth(0.3);
-        doc.line(cx + sx * 5, cy, cx + sx * 15, cy);
-        doc.line(cx, cy + sy * 5, cx, cy + sy * 15);
-    });
-    
-    // ===== HEADER BANNER =====
-    // Banner background
-    doc.setFillColor(...darkBg);
-    doc.rect(13, 10, 184, 28, 'F');
-    
-    // Banner border with accent color
-    doc.setDrawColor(...accentColor);
-    doc.setLineWidth(2);
-    doc.rect(13, 10, 184, 28);
-    
-    // Character name
-    doc.setTextColor(...lightText);
-    doc.setFontSize(22);
-    doc.setFont('helvetica', 'bold');
-    doc.text(character.name || 'Unbenannter Held', 105, 25, { align: 'center' });
-    
-    // Class, race, background line
-    doc.setFontSize(10);
-    doc.setTextColor(...silver);
-    doc.setFont('helvetica', 'normal');
-    const headerLine = `${cls?.name || ''} der Stufe 1  •  ${race?.name || ''}  •  ${bg?.name || ''}${character.gender ? '  •  ' + character.gender : ''}`;
-    doc.text(headerLine, 105, 33, { align: 'center' });
-    
-    // ===== LEFT COLUMN (Abilities + Combat) =====
-    let y = 45;
-    const leftX = 15;
-    
-    // Section: Attribute
-    doc.setFillColor(...accentColor);
-    doc.rect(leftX, y, 55, 6, 'F');
-    doc.setTextColor(...lightText);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.text('ATTRIBUTE', leftX + 3, y + 4.5);
-    
-    y += 9;
-    const abilities = [
-        { key: 'STR', name: 'STÄRKE', symbol: '⬢' },
-        { key: 'DEX', name: 'GESCHICK', symbol: '◇' },
-        { key: 'CON', name: 'KONSTITUTION', symbol: '◆' },
-        { key: 'INT', name: 'INTELLIGENZ', symbol: '○' },
-        { key: 'WIS', name: 'WEISHEIT', symbol: '□' },
-        { key: 'CHA', name: 'CHARISMA', symbol: '◈' }
-    ];
-    
-    // Draw ability boxes in 2x3 grid
-    abilities.forEach((abil, i) => {
-        const ax = leftX + (i % 3) * 20;
-        const ay = y + Math.floor(i / 3) * 24;
-        
-        // Box with gradient effect
-        doc.setFillColor(25, 25, 50);
-        doc.rect(ax, ay, 18, 22, 'F');
-        doc.setDrawColor(...accentColor);
-        doc.setLineWidth(0.5);
-        doc.rect(ax, ay, 18, 22);
-        
-        // Ability name
-        doc.setTextColor(...silver);
-        doc.setFontSize(4.5);
-        doc.setFont('helvetica', 'bold');
-        doc.text(abil.name, ax + 9, ay + 5, { align: 'center' });
-        
-        // Score
-        doc.setTextColor(...lightText);
-        doc.setFontSize(13);
-        doc.text(`${character.abilities[abil.key]}`, ax + 9, ay + 13, { align: 'center' });
-        
-        // Modifier
-        const mod = fmtMod(character.abilities[abil.key]);
-        doc.setTextColor(...gold);
-        doc.setFontSize(9);
-        doc.text(mod, ax + 9, ay + 19, { align: 'center' });
-    });
-    
-    y += 52;
-    
-    // Section: Kampfinfo
-    doc.setFillColor(...accentColor);
-    doc.rect(leftX, y, 55, 6, 'F');
-    doc.setTextColor(...lightText);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.text('KAMPFWERTE', leftX + 3, y + 4.5);
-    
-    y += 9;
-    
-    // HP Box (larger, prominent)
-    doc.setFillColor(40, 20, 20);
-    doc.rect(leftX, y, 35, 14, 'F');
-    doc.setDrawColor(...crimson);
-    doc.setLineWidth(1);
-    doc.rect(leftX, y, 35, 14);
-    doc.setTextColor(...silver);
-    doc.setFontSize(5);
-    doc.setFont('helvetica', 'bold');
-    doc.text('TREFFERPUNKTE', leftX + 17.5, y + 4, { align: 'center' });
-    doc.setTextColor(...lightText);
-    doc.setFontSize(12);
-    doc.text(`${maxHP}`, leftX + 17.5, y + 11, { align: 'center' });
-    
-    // AC Box
-    doc.setFillColor(20, 30, 40);
-    doc.rect(leftX + 37, y, 18, 14, 'F');
-    doc.setDrawColor(...silver);
-    doc.setLineWidth(0.5);
-    doc.rect(leftX + 37, y, 18, 14);
-    doc.setTextColor(...silver);
-    doc.setFontSize(5);
-    doc.setFont('helvetica', 'bold');
-    doc.text('RÜSTUNG', leftX + 46, y + 4, { align: 'center' });
-    doc.setTextColor(...lightText);
-    doc.setFontSize(10);
-    doc.text('10', leftX + 46, y + 11, { align: 'center' });
-    
-    y += 17;
-    
-    // INIT, Speed, Prof, Spell
-    const stats = [
-        { label: 'INIT', value: fmtMod(character.abilities.DEX) },
-        { label: 'TEMPO', value: '9m' },
-        { label: 'COMP', value: `+${prof}` },
-        { label: 'SG', value: '8' }
-    ];
-    
-    stats.forEach((stat, i) => {
-        const sx = leftX + i * 14;
-        doc.setFillColor(20, 20, 35);
-        doc.rect(sx, y, 12, 10, 'F');
-        doc.setDrawColor(...grayText);
-        doc.setLineWidth(0.3);
-        doc.rect(sx, y, 12, 10);
-        
-        doc.setTextColor(...silver);
-        doc.setFontSize(4);
-        doc.setFont('helvetica', 'bold');
-        doc.text(stat.label, sx + 6, y + 4, { align: 'center' });
-        doc.setTextColor(...lightText);
-        doc.setFontSize(8);
-        doc.text(stat.value, sx + 6, y + 8.5, { align: 'center' });
-    });
-    
-    y += 14;
-    
-    // ===== RIGHT COLUMN (Skills) =====
-    const rightX = 75;
-    y = 45;
-    
-    doc.setFillColor(...accentColor);
-    doc.rect(rightX, y, 120, 6, 'F');
-    doc.setTextColor(...lightText);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.text('FERTIGKEITEN', rightX + 3, y + 4.5);
-    
-    y += 9;
-    
+    const accent = accentByClass[character.class] || [92, 76, 118];
+
     const skillMap = {
         "Akrobatik": "DEX", "Tierkunde": "WIS", "Arkane Kunde": "INT", "Athletik": "STR",
         "Täuschung": "CHA", "Geschichte": "INT", "Einsicht": "WIS", "Einschüchterung": "CHA",
@@ -2389,198 +2164,192 @@ function generatePDF() {
         "Wahrnehmung": "WIS", "Auftreten": "CHA", "Überzeugung": "CHA", "Religion": "INT",
         "Fingerfertigkeit": "DEX", "Heimlichkeit": "DEX", "Überleben": "WIS"
     };
-    
-    const sortedSkills = Object.entries(skillMap).sort((a, b) => a[1].localeCompare(b[1]));
-    
-    let skillY = y;
-    let col = 0;
-    
-    sortedSkills.forEach(([skillName, abil], idx) => {
-        if (idx > 0 && idx % 10 === 0) {
-            col = 1;
-            skillY = y;
-        }
-        
-        const sx = rightX + col * 60;
-        const isProficient = character.skills.includes(skillName);
-        const mod = getMod(character.abilities[abil]) + (isProficient ? prof : 0);
-        
-        // Skill row background (alternating)
-        if (idx % 2 === 0) {
-            doc.setFillColor(25, 25, 50);
-            doc.rect(sx - 1, skillY - 1, 58, 7, 'F');
-        }
-        
-        // Proficiency checkbox
-        doc.setDrawColor(isProficient ? gold : grayText);
-        doc.setLineWidth(0.3);
-        doc.rect(sx, skillY, 3.5, 3.5);
-        if (isProficient) {
-            doc.setFillColor(...gold);
-            doc.rect(sx, skillY, 3.5, 3.5, 'F');
-            // Draw X inside checkbox
-            doc.setDrawColor(...darkBg);
-            doc.setLineWidth(0.5);
-            doc.line(sx + 0.7, skillY + 0.7, sx + 2.8, skillY + 2.8);
-            doc.line(sx + 2.8, skillY + 0.7, sx + 0.7, skillY + 2.8);
-        }
-        
-        // Skill name
-        doc.setTextColor(isProficient ? lightText : silver);
-        doc.setFontSize(6);
-        doc.setFont('helvetica', isProficient ? 'bold' : 'normal');
-        doc.text(skillName, sx + 5, skillY + 2.5);
-        
-        // Ability tag
-        doc.setTextColor(...grayText);
-        doc.setFontSize(4.5);
-        doc.setFont('helvetica', 'normal');
-        doc.text(abil, sx + 5, skillY + 5);
-        
-        // Modifier
-        doc.setTextColor(isProficient ? gold : silver);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'bold');
-        doc.text(mod >= 0 ? `+${mod}` : `${mod}`, sx + 54, skillY + 2.5);
-        
-        skillY += 7;
-    });
-    
-    // ===== BOTTOM SECTION =====
-    y = 155;
-    
-    // Personality section
-    doc.setFillColor(...accentColor);
-    doc.rect(leftX, y, 185, 6, 'F');
-    doc.setTextColor(...lightText);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PERSÖNLICHKEIT  •  WELTANSCHAUUNG  •  IDEOGRAPHEN', leftX + 3, y + 4);
-    
-    y += 9;
-    
-    // Alignment & XP
-    doc.setFillColor(25, 25, 50);
-    doc.rect(leftX, y, 90, 8, 'F');
-    doc.rect(rightX, y, 90, 8, 'F');
-    
-    doc.setTextColor(...silver);
-    doc.setFontSize(6);
-    doc.setFont('helvetica', 'bold');
-    doc.text('WELTANSCHAUUNG:', leftX + 3, y + 5);
-    doc.text('ERFAHRUNGSPUNKTE:', rightX + 3, y + 5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...lightText);
-    doc.text(character.alignment || 'Unbestimmt', leftX + 35, y + 5);
-    doc.text(`${character.xp || 0} XP`, rightX + 35, y + 5);
-    
-    y += 12;
-    
-    // 4 personality trait lines
-    doc.setDrawColor(...goldDark);
-    doc.setLineWidth(0.3);
-    for (let i = 0; i < 4; i++) {
-        doc.line(leftX, y, 200, y);
-        y += 8;
-    }
-    
-    y += 3;
-    
-    // Story section
-    doc.setFillColor(...accentColor);
-    doc.rect(leftX, y, 185, 6, 'F');
-    doc.setTextColor(...lightText);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'bold');
-    doc.text('HINTERGRUND & GESCHICHTE', leftX + 3, y + 4);
-    
-    y += 9;
-    doc.setTextColor(...silver);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
-    const storyText = character.backstory || `${bg?.name || 'Charakter'} — Die Geschichte dieses Helden beginnt hier...`;
-    const storyLines = doc.splitTextToSize(storyText, 180);
-    doc.text(storyLines.slice(0, 3), leftX + 3, y + 4);
-    
-    y += Math.min(storyLines.length * 4 + 5, 20);
-    
-    // Class features & Equipment
-    doc.setFillColor(...accentColor);
-    doc.rect(leftX, y, 90, 6, 'F');
-    doc.rect(rightX, y, 90, 6, 'F');
-    doc.setTextColor(...lightText);
-    doc.setFontSize(6);
-    doc.setFont('helvetica', 'bold');
-    doc.text('KLASSEN-EIGENSCHAFTEN', leftX + 3, y + 4);
-    doc.text('AUSRÜSTUNG', rightX + 3, y + 4);
-    
-    y += 9;
-    doc.setTextColor(...lightText);
-    doc.setFontSize(6);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${cls?.name || 'Klasse'} (Stufe 1)`, leftX + 3, y);
-    doc.setFont('helvetica', 'normal');
-    
+
     const classFeatures = {
-        barbar: ['Rage (2/SR)', 'Unarmored Defense'],
-        barde: ['Bardic Inspiration (1/WR)', 'Spellcasting'],
-        druide: ['Druidic', 'Spellcasting'],
-        krieger: ['Fighting Style', 'Second Wind'],
-        monk: ['Unarmored Defense', 'Martial Arts'],
-        paladin: ['Divine Sense', 'Lay on Hands'],
-        schurke: ['Sneak Attack (1d6)', 'Thieves Cant'],
-        kleriker: ['Divine Domain', 'Spellcasting'],
-        zauberer: ['Spellcasting', 'Arcane Recovery'],
-        hexmeister: ['Pact Magic', 'Eldritch Invocations'],
-        waldlaeufer: ['Natural Explorer', 'Spellcasting']
+        barbar: ['Raserei', 'Ungepanzerte Verteidigung'],
+        barde: ['Bardeninspiration', 'Zauberwirken'],
+        druide: ['Druidisch', 'Zauberwirken'],
+        krieger: ['Kampfstil', 'Zweite Luft'],
+        monk: ['Ungepanzerte Verteidigung', 'Kampfkünste'],
+        paladin: ['Göttlicher Sinn', 'Handauflegen'],
+        schurke: ['Heimtückischer Angriff', 'Diebessprache'],
+        kleriker: ['Goettliche Domaene', 'Zauberwirken'],
+        zauberer: ['Zauberwirken', 'Arkane Erholung'],
+        hexmeister: ['Paktmagie', 'Paktgabe'],
+        waldlaeufer: ['Natuerlicher Entdecker', 'Zauberwirken']
     };
-    
-    let fy = y + 6;
-    (classFeatures[character.class] || []).forEach(f => {
-        doc.text(`◆ ${f}`, leftX + 3, fy);
-        fy += 5;
-    });
-    
+
     const equipment = {
-        barbar: ['Zweihänder', '4x Streitkolben', '4x Wurfaxt'],
-        barde: ['Rapier', 'Dolch', 'Lauter'],
-        druide: ['Holzstab', 'Schild', 'Kräuterbeutel'],
-        krieger: ['Langschwert', 'Langbogen', 'Rüstung'],
-        monk: ['Kurzschwert', 'Heilertasche'],
-        paladin: ['Kriegshammer', 'Schild', 'Rüstung'],
-        schurke: ['Rapier', 'Kurzschwert', 'Diebeswerkzeug'],
-        kleriker: ['Stab', 'Streitkolben', 'Heilertasche'],
-        zauberer: ['Stab', 'Zauberbuch'],
-        hexmeister: ['Zauberbuch', 'Fokus'],
-        waldlaeufer: ['Langbogen', '20x Pfeil', 'Rucksack']
+        barbar: ['Zweihandwaffe', 'Wurfaexte', 'Abenteurerpack'],
+        barde: ['Rapier', 'Dolch', 'Instrument'],
+        druide: ['Holzstab', 'Schild', 'Fokus'],
+        krieger: ['Langschwert', 'Bogen', 'Ruestung'],
+        monk: ['Kurzschwert', 'Pack'],
+        paladin: ['Kriegshammer', 'Schild', 'Kettenhemd'],
+        schurke: ['Rapier', 'Kurzbogen', 'Diebeswerkzeug'],
+        kleriker: ['Streitkolben', 'Schild', 'Heilertasche'],
+        zauberer: ['Zauberbuch', 'Stab', 'Komponentenbeutel'],
+        hexmeister: ['Fokus', 'Leichte Ruestung', 'Waffe'],
+        waldlaeufer: ['Langbogen', 'Pfeile', 'Rucksack']
     };
-    
-    let ey = y + 6;
-    (equipment[character.class] || ['Standard-Ausrüstung']).forEach(item => {
-        doc.text(`◆ ${item}`, rightX + 3, ey);
-        ey += 5;
+
+    function drawDragonCrest(x, y, scale = 1) {
+        doc.setDrawColor(...accent);
+        doc.setLineWidth(0.4);
+        doc.setFillColor(...accent);
+        doc.circle(x, y, 1.7 * scale, 'S');
+        doc.triangle(x - 5 * scale, y + 1 * scale, x, y - 6 * scale, x + 5 * scale, y + 1 * scale, 'S');
+        doc.line(x - 2.5 * scale, y + 5 * scale, x - 7 * scale, y + 10 * scale);
+        doc.line(x + 2.5 * scale, y + 5 * scale, x + 7 * scale, y + 10 * scale);
+        doc.line(x - 1.5 * scale, y - 2 * scale, x - 5 * scale, y - 7 * scale);
+        doc.line(x + 1.5 * scale, y - 2 * scale, x + 5 * scale, y - 7 * scale);
+    }
+
+    function box(x, y, w, h, title) {
+        doc.setDrawColor(70, 58, 46);
+        doc.rect(x, y, w, h);
+        if (title) {
+            doc.setFillColor(...accent);
+            doc.rect(x, y, w, 7, 'F');
+            doc.setTextColor(255, 250, 242);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.text(title, x + 2, y + 4.8);
+            doc.setTextColor(20, 20, 20);
+        }
+    }
+
+    function writeLines(lines, x, y, width, lineHeight = 4.2, maxLines = 999) {
+        const wrapped = doc.splitTextToSize(lines.join(' '), width);
+        wrapped.slice(0, maxLines).forEach((line, index) => {
+            doc.text(line, x, y + index * lineHeight);
+        });
+    }
+
+    doc.setFillColor(248, 244, 236);
+    doc.rect(0, 0, 210, 297, 'F');
+    doc.setTextColor(20, 20, 20);
+    doc.setDrawColor(187, 172, 146);
+    doc.setLineWidth(0.6);
+    doc.rect(8, 8, 194, 281);
+    doc.setLineWidth(0.2);
+    doc.rect(10.5, 10.5, 189, 276);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.text(characterName, 14, 18);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...accent);
+    doc.text(`Kompaktbogen fuer D&D 5e`, 14, 24);
+    doc.setTextColor(20, 20, 20);
+    doc.text(`Spieler: ${playerName}`, 14, 29);
+    doc.text(`Volk: ${race.name}   Klasse: ${cls.name}   Hintergrund: ${bg.name}`, 14, 34);
+    doc.text(`Weltanschauung: ${character.alignment || 'Offen'}   Geschlecht: ${character.gender || 'Offen'}   XP: ${character.xp || 0}`, 14, 39);
+    drawDragonCrest(182, 22, 1.2);
+    drawDragonCrest(194, 22, 0.8);
+
+    box(14, 46, 60, 56, 'Attribute');
+    const abilityRows = [
+        ['STR', 'Staerke'],
+        ['DEX', 'Geschick'],
+        ['CON', 'Konstitution'],
+        ['INT', 'Intelligenz'],
+        ['WIS', 'Weisheit'],
+        ['CHA', 'Charisma']
+    ];
+    doc.setFontSize(9);
+    abilityRows.forEach(([key, label], index) => {
+        const rowY = 58 + index * 7;
+        doc.setFont('helvetica', 'normal');
+        doc.text(label, 17, rowY);
+        doc.setFont('helvetica', 'bold');
+        doc.text(String(character.abilities[key]), 49, rowY, { align: 'right' });
+        doc.text(fmtMod(character.abilities[key]), 70, rowY, { align: 'right' });
     });
-    
-    // ===== FOOTER =====
-    // Decorative footer line
-    doc.setDrawColor(...gold);
-    doc.setLineWidth(0.5);
-    doc.line(leftX, 280, 200, 280);
-    
-    // Footer text
-    doc.setTextColor(...grayText);
-    doc.setFontSize(6);
+
+    box(78, 46, 54, 56, 'Kampf');
+    const combatRows = [
+        ['RK', '10'],
+        ['Initiative', fmtMod(character.abilities.DEX)],
+        ['Tempo', '9m'],
+        ['TP Max', String(maxHP)],
+        ['TP Aktuell', ''],
+        ['Prof.-Bonus', `+${prof}`]
+    ];
+    combatRows.forEach(([label, value], index) => {
+        const rowY = 58 + index * 7;
+        doc.setFont('helvetica', 'normal');
+        doc.text(label, 81, rowY);
+        doc.setFont('helvetica', 'bold');
+        doc.text(value, 129, rowY, { align: 'right' });
+    });
+
+    box(136, 46, 60, 56, 'Rettungswuerfe');
+    abilityRows.forEach(([key, label], index) => {
+        const rowY = 58 + index * 7;
+        doc.setFont('helvetica', 'normal');
+        doc.text(label, 139, rowY);
+        doc.setFont('helvetica', 'bold');
+        doc.text(fmtMod(character.abilities[key]), 193, rowY, { align: 'right' });
+    });
+
+    box(14, 106, 88, 92, 'Fertigkeiten');
+    const skills = Object.entries(skillMap).map(([name, ability]) => {
+        const bonus = getMod(character.abilities[ability]) + (character.skills.includes(name) ? prof : 0);
+        return { name, ability, bonus, trained: character.skills.includes(name) };
+    });
+    doc.setFontSize(8);
+    skills.forEach((skill, index) => {
+        const rowY = 118 + index * 4.05;
+        doc.setFont('helvetica', skill.trained ? 'bold' : 'normal');
+        const label = `${skill.name} (${skill.ability})`;
+        doc.text(label, 17, rowY);
+        doc.text(skill.bonus >= 0 ? `+${skill.bonus}` : `${skill.bonus}`, 98, rowY, { align: 'right' });
+    });
+
+    box(106, 106, 90, 44, 'Faehigkeiten');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const featureLines = (classFeatures[character.class] || ['Noch keine Klassenfaehigkeiten eingetragen.']).map(feature => `- ${feature}`);
+    writeLines(featureLines, 109, 118, 80, 4.4, 6);
+
+    box(106, 154, 90, 44, 'Ausruestung');
+    const equipmentLines = (equipment[character.class] || ['Standardausruestung']).map(item => `- ${item}`);
+    writeLines(equipmentLines, 109, 166, 80, 4.4, 6);
+
+    box(14, 202, 182, 32, 'Notizen und Geschichte');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    writeLines([character.backstory || 'Keine Geschichte eingetragen.'], 17, 214, 174, 4.4, 4);
+
+    box(14, 238, 88, 24, 'Angriffe / Zauber');
+    box(106, 238, 90, 24, 'Inventar / Gold');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text('Platz fuer die wichtigsten Angriffe oder Zauber.', 17, 250);
+    doc.text('Platz fuer Inventar, Gold und kurze Marker.', 109, 250);
+
     doc.setFont('helvetica', 'italic');
-    doc.text('D&D 5e Charakterbogen  •  Erstellt mit D&D Charakter Manager', 105, 285, { align: 'center' });
-    doc.text(`Generiert am ${new Date().toLocaleDateString('de-DE')}`, 105, 289, { align: 'center' });
-    
-    const filename = `${character.name || 'character'}_${cls?.name || 'unknown'}.pdf`;
-    doc.save(filename);
+    doc.setFontSize(7);
+    doc.text('Minimierter deutscher 5e-Charakterbogen fuer Einsteiger.', 14, 275);
+    doc.text(`Erstellt am ${new Date().toLocaleDateString('de-DE')}`, 196, 275, { align: 'right' });
+
+    const safeFileName = sanitizeFileName(`${characterName}_${cls?.name || 'charakter'}`) || 'charakterbogen';
+    doc.save(`${safeFileName}.pdf`);
 }
 
 // ==================== HELPERS ====================
 function getMod(score) { return Math.floor((score - 10) / 2); }
 function fmtMod(score) { const m = getMod(score); return m >= 0 ? `+${m}` : `${m}`; }
+function sanitizeFileName(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
 function escapeHtml(value) {
     return String(value ?? '')
         .replaceAll('&', '&amp;')
